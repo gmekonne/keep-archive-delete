@@ -3,41 +3,55 @@ import subprocess
 import datetime
 import calendar
 import pandas as pd
-# =====================================================================
-# SECTION 1: EXISTING CODE (Confluence Data Lifecycle Manager)
-# =====================================================================
-st.title("Confluence Data Lifecycle Manager")
-st.write("Manage Keep / Archive / Delete workflow")
 
-if st.button("Start Data Management"):
-    result = subprocess.run(["python", "start_data_management.py"])
-    if result.returncode == 0:
-        st.success("Excel file generated successfully.")
-    else:
-        st.error("Process failed.")
-
-if st.button("Complete Data Management"):
-    result = subprocess.run(["python", "complete_data_management.py"])
-    if result.returncode == 0:
-        st.success("Data management completed.")
-    else:
-        st.error("Process failed.")
-
-# Add a visual divider between your original tool and the new dashboard
-st.markdown("---")
-
-# =====================================================================
-# SECTION 2: NEW INSTRUCTOR DASHBOARD
-# =====================================================================
-
-st.title("Instructor Dashboard")
-st.subheader("Welcome!")
-st.write(
-    "From here, you can enter your course, view presentations, "
-    "manage groups, review ratings, and export grades."
+# Set the page configuration to widescreen format (Crucial for Dashboard Designs)
+st.set_page_config(
+    page_title="5-Star Presentation Rater Dashboard", 
+    layout="wide", 
+    initial_sidebar_state="expanded"
 )
 
-# Mock Course Database Table
+# =====================================================================
+# SIDEBAR: SYSTEM & MAINTENANCE CONTROLS
+# =====================================================================
+with st.sidebar:
+    st.image("https://icons8.com", width=60)
+    st.title("System Control Panel")
+    st.markdown("---")
+    
+    # Existing Tool isolated cleanly inside an expander so it stays out of the dashboard workspace
+    with st.expander("🛠️ Confluence Data Lifecycle", expanded=False):
+        st.caption("Manage Keep / Archive / Delete workflows below:")
+        if st.button("Start Data Management", use_container_width=True):
+            result = subprocess.run(["python", "start_data_management.py"])
+            if result.returncode == 0:
+                st.success("Excel generated.")
+            else:
+                st.error("Process failed.")
+
+        if st.button("Complete Data Management", use_container_width=True):
+            result = subprocess.run(["python", "complete_data_management.py"])
+            if result.returncode == 0:
+                st.success("Completed.")
+            else:
+                st.error("Process failed.")
+                
+    st.markdown("---")
+    st.caption("v1.0.0 • Connected to Hostinger via GitHub")
+
+# =====================================================================
+# MAIN WORKSPACE: INSTRUCTOR DASHBOARD
+# =====================================================================
+
+# Title & Subtitle Banner
+st.title("🎓 Instructor Dashboard")
+st.markdown(
+    "Welcome! From here, you can enter your course, view presentations, "
+    "manage groups, review ratings, and export grades."
+)
+st.markdown("---")
+
+# Mock Database Tables
 mock_courses = pd.DataFrame({
     "Course No.": [1, 2, 3],
     "Course Code": ["COMP101", "DATA202", "PROG303"],
@@ -45,20 +59,6 @@ mock_courses = pd.DataFrame({
     "Course Date": ["Mon/Wed", "Tue/Thu", "Friday"]
 })
 
-st.markdown("### Your Courses")
-st.dataframe(mock_courses, use_container_width=True)
-
-# ---------------------------------------------------------------------
-# FIX: PROACTIVE PARTICIPATION CALENDAR (Database Search Simulation)
-# ---------------------------------------------------------------------
-st.markdown("### Participation Calendar")
-selected_course = st.selectbox(
-    "Select a course to check scheduled presentations:", 
-    options=mock_courses["Course Code"].tolist()
-)
-
-# This dictionary simulates your future database containing scheduled presentation dates
-# Using hardcoded dates within June 2026 for simulation
 mock_schedule_db = {
     "COMP101": [
         {"date": datetime.date(2026, 6, 15), "teams": "Group 1, Group 2", "topics": "Intro to Git"},
@@ -73,77 +73,111 @@ mock_schedule_db = {
     ]
 }
 
-# 1. Fetch scheduled entries for the chosen course from our simulated database
-course_schedule = mock_schedule_db.get(selected_course, [])
-
-# 2. Extract just the dates so we can alert the instructor immediately
-scheduled_dates = [item["date"] for item in course_schedule]
-
-if scheduled_dates:
-    # Build a clean visual notification listing all active presentation dates
-    st.info(f"📅 **Upcoming Presentations found for {selected_course} on:**")
-    for s_date in scheduled_dates:
-        st.markdown(f"• **{s_date.strftime('%A, %B %d, %Y')}**")
-else:
-    st.warning("⚠️ No presentations are currently scheduled for this course.")
-
-# 3. Allow user to input a date to view popup details, default loading the first active schedule date
-default_date = scheduled_dates[0] if scheduled_dates else datetime.date.today()
-selected_date = st.date_input("Select a date below to view full dashboard popup details:", default_date)
-
-# Simulation of a "popup window" presentation information using Streamlit Dialogs
-@st.dialog("Presentation Details")
-def show_presentation_details(course, date, schedule_list):
-    # Search the active presentation list for a matching date
-    match = next((item for item in schedule_list if item["date"] == date), None)
-    
-    st.write(f"### 📋 Details for {course}")
-    st.write(f"**Selected Date:** {date.strftime('%B %d, %Y')}")
-    st.markdown("---")
-    
-    if match:
-        st.success("🟢 Presentation Scheduled")
-        st.write(f"**Scheduled Teams:** {match['teams']}")
-        st.write(f"**Topics:** {match['topics']}")
-        st.metric(label="Current Class 5-Star Rating", value="4.8 ⭐")
-    else:
-        st.error("🔴 No Presentation Scheduled")
-        st.write("There are no presentations logged in the database for this specific date.")
-
-if st.button("👁️ Open Presentation Details Popup"):
-    show_presentation_details(selected_course, selected_date, course_schedule)
+# ---------------------------------------------------------------------
+# ROW 1: TOP EXECUTIVE METRIC CARDS
+# ---------------------------------------------------------------------
+m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+with m_col1:
+    st.metric(label="Active Courses", value=str(len(mock_courses)), delta="Semester Peak")
+with m_col2:
+    st.metric(label="Total Scheduled Presentations", value="5 Dates", delta="2 Completed")
+with m_col3:
+    st.metric(label="Global Presentation Rating", value="4.80 / 5.0", delta="0.25 ⭐ Increase")
+with m_col4:
+    st.metric(label="Pending Peer Reviews", value="14 Reviews", delta="-8 Today", delta_color="inverse")
 
 st.markdown("---")
 
-# =====================================================================
-# SECTION 3: DASHBOARD ACTION SECTIONS
-# =====================================================================
-st.markdown("## Management Controls")
+# ---------------------------------------------------------------------
+# ROW 2: SPLIT SCREEN (Left: Courses Data | Right: Smart Calendar)
+# ---------------------------------------------------------------------
+left_panel, right_panel = st.columns([3, 2])
 
-with st.expander("📂 1. Courses and Class Setup", expanded=True):
-    col1, col2 = st.columns(2)
+with left_panel:
+    st.subheader("📚 Your Active Courses")
+    st.dataframe(mock_courses, use_container_width=True, hide_index=True)
+
+with right_panel:
+    st.subheader("📅 Participation Calendar")
+    selected_course = st.selectbox(
+        "Select a course to search schedule database:", 
+        options=mock_courses["Course Code"].tolist(),
+        label_visibility="collapsed"
+    )
+    
+    course_schedule = mock_schedule_db.get(selected_course, [])
+    scheduled_dates = [item["date"] for item in course_schedule]
+    
+    # Inline dashboard alerts highlighting active dates immediately
+    if scheduled_dates:
+        date_strings = ", ".join([d.strftime('%b %d') for d in scheduled_dates])
+        st.info(f"⚡ **Presentations found on:** {date_strings}")
+    else:
+        st.warning("⚠️ No active dates found for this course.")
+
+    # Contextual date picker interaction row
+    c_col1, c_col2 = st.columns([3, 2])
+    with c_col1:
+        default_date = scheduled_dates[0] if scheduled_dates else datetime.date.today()
+        selected_date = st.date_input("Target Date Lookup:", default_date, label_visibility="collapsed")
+    with c_col2:
+        # Dialog Popup implementation
+        @st.dialog("Presentation Details")
+        def show_presentation_details(course, date, schedule_list):
+            match = next((item for item in schedule_list if item["date"] == date), None)
+            st.write(f"### 📋 Details for {course}")
+            st.write(f"**Date:** {date.strftime('%B %d, %Y')}")
+            st.markdown("---")
+            if match:
+                st.success("🟢 Presentation Active")
+                st.write(f"**Scheduled Teams:** {match['teams']}")
+                st.write(f"**Topics:** {match['topics']}")
+                st.metric(label="Current Class 5-Star Rating", value="4.8 ⭐")
+            else:
+                st.error("🔴 Empty Slot")
+                st.write("No presentations scheduled for this specific date.")
+
+        if st.button("👁️ View Details", use_container_width=True):
+            show_presentation_details(selected_course, selected_date, course_schedule)
+
+st.markdown("---")
+
+# ---------------------------------------------------------------------
+# ROW 3: MANAGEMENT CONTROL TABS
+# ---------------------------------------------------------------------
+st.subheader("⚙️ Control & Operations Console")
+
+tab1, tab2 = st.tabs(["📂 1. Courses and Class Setup", "⭐ 2. Presentations and Ratings"])
+
+with tab1:
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("➕ Add Course"):
-            st.info("Form to add course clicked.")
-        if st.button("❌ View / Delete Course"):
-            st.info("Course catalog list loaded.")
+        if st.button("➕ Add Course", use_container_width=True):
+            st.toast("Add course menu initiated!")
     with col2:
-        if st.button("📈 View Contributions"):
-            st.info("Contribution metrics loaded.")
-        if st.button("🔄 Import Students from Brightspace"):
-            st.info("Brightspace API / CSV connection triggered.")
-
-with st.expander("⭐ 2. Presentations and Ratings", expanded=True):
-    col3, col4 = st.columns(2)
+        if st.button("❌ View / Delete Course", use_container_width=True):
+            st.toast("Course directory pulled.")
     with col3:
-        if st.button("👥 Load Presentations and Groups"):
-            st.info("Group data synchronized.")
-        if st.button("📝 Load Peer Ratings"):
-            st.info("Peer evaluations imported.")
-        if st.button("🏅 Grade Presentations"):
-            st.info("Grading rubric interface active.")
+        if st.button("📈 View Contributions", use_container_width=True):
+            st.toast("Analytics dashboard loaded.")
     with col4:
-        if st.button("📊 View Grades"):
-            st.info("Gradebook calculations displayed.")
-        if st.button("📥 Download Brightspace CSV"):
-            st.info("Generating Brightspace compatible CSV file...")
+        if st.button("🔄 Import Brightspace Students", use_container_width=True):
+            st.toast("Roster sync initiated.")
+
+with tab2:
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        if st.button("👥 Load Presentations & Groups", use_container_width=True):
+            st.toast("Group roster data updated.")
+    with col2:
+        if st.button("📝 Load Peer Ratings", use_container_width=True):
+            st.toast("Importing peer raw files...")
+    with col3:
+        if st.button("🏅 Grade Presentations", use_container_width=True):
+            st.toast("Grading interface open.")
+    with col4:
+        if st.button("📊 View Grades", use_container_width=True):
+            st.toast("Calculating student averages...")
+    with col5:
+        if st.button("📥 Download Brightspace CSV", use_container_width=True):
+            st.toast("Exporting CSV file...")
