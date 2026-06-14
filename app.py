@@ -38,13 +38,16 @@ st.write(
     "manage groups, review ratings, and export grades."
 )
 
+
 # Mock data for demonstration - replace this with your real database query later
 mock_courses = pd.DataFrame({
-    "Course No.":,
+    "Course No.": [1, 2, 3],
     "Course Code": ["COMP101", "DATA202", "PROG303"],
     "Course Section": ["A", "B", "C"],
     "Course Date": ["Mon/Wed", "Tue/Thu", "Friday"]
 })
+
+
 
 # 2. Your Courses Section
 st.markdown("### Your Courses")
