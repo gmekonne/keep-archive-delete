@@ -4,6 +4,7 @@ import datetime
 import pandas as pd
 import pymysql
 import hashlib
+from passlib.hash import bcrypt  # Import the Bcrypt parser at the top of your script
 
 # Set page layout to wide dashboard design
 st.set_page_config(
@@ -29,8 +30,6 @@ def get_mysql_connection():
 def hash_password(password):
     """Encrypts passwords to match your existing hash format (SHA-256)."""
     return hashlib.sha256(str.encode(password)).hexdigest()
-
-from passlib.hash import bcrypt  # Import the Bcrypt parser at the top of your script
 
 def verify_user(email, password):
     """Validates login attempts against your live Hostinger user table using PHP Bcrypt compatibility."""
