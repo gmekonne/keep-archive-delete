@@ -175,7 +175,8 @@ else:
     st.markdown("---")
 
     # Split Screen Layout Row
-    left_panel, right_panel = st.columns()
+    left_panel, right_panel = st.columns(2) #  Explicitly tells Python to build 2 panels side-by-side
+
     
     with left_panel:
         st.subheader("📚 Your Courses")
