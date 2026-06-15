@@ -7,5 +7,4 @@ atlassian-python-api
 ollama
 pymysql
 cryptography
-passlib
 bcrypt
