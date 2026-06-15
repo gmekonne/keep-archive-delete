@@ -41,7 +41,7 @@ def verify_user(email, password):
             sql = "SELECT userID, fname, lname, password FROM user WHERE email = %s"
             cursor.execute(sql, (email.lower().strip(),))
             user_record = cursor.fetchone()
-        conn.close()
+            conn.close()
         
         if user_record:
             stored_php_hash = user_record["password"]
