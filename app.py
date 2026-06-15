@@ -58,7 +58,7 @@ if "user_email" not in st.session_state:
 # AUTHENTICATION GATEWAY (Displayed Initially)
 # =====================================================================
 if not st.session_state.logged_in:
-    st.title("🔒 5-Star Presentation Rater Portal")
+    st.title("🔒 ClassParticipation Portal")
     st.write("Secure Instructor Gateway • Connected directly to Hostinger production servers.")
     
     login_email = st.text_input("Email Address", key="login_email_input")
