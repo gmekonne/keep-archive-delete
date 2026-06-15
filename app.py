@@ -30,19 +30,46 @@ def hash_password(password):
     """Encrypts passwords to match your existing hash format (SHA-256)."""
     return hashlib.sha256(str.encode(password)).hexdigest()
 
+from passlib.hash import bcrypt  # Import the Bcrypt parser at the top of your script
+
 def verify_user(email, password):
-    """Validates login attempts against your live Hostinger user table."""
+    """Validates login attempts against your live Hostinger user table using PHP Bcrypt compatibility."""
     try:
         conn = get_mysql_connection()
         with conn.cursor() as cursor:
-            sql = "SELECT userID, fname, lname FROM user WHERE email = %s AND password = %s"
-            cursor.execute(sql, (email.lower().strip(), hash_password(password)))
+            # Step 1: Pull the record by email first
+            sql = "SELECT userID, fname, lname, password FROM user WHERE email = %s"
+            cursor.execute(sql, (email.lower().strip(),))
             user_record = cursor.fetchone()
         conn.close()
-        return user_record
+        
+        # Step 2: If the user exists, use passlib to verify the plain text password against the PHP hash
+        if user_record:
+            stored_php_hash = user_record["password"]
+            
+            # This handles PHP's $2y$ blowfish/bcrypt verification flawlessly
+            if bcrypt.verify(password, stored_php_hash):
+                return user_record  # Password matches, return instructor profile payload
+                
+        return None  # No email match or incorrect password
     except Exception as e:
         st.error(f"Database Connection Error: {e}")
         return None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Maintain active login state and instructor metadata across app interactions
 if "logged_in" not in st.session_state:
