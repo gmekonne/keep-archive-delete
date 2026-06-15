@@ -4,7 +4,7 @@ import datetime
 import pandas as pd
 import pymysql
 import hashlib
-from passlib.hash import bcrypt  # Import the Bcrypt parser at the top of your script
+import bcrypt  # Import the Bcrypt parser at the top of your script
 
 # Set page layout to wide dashboard design
 st.set_page_config(
