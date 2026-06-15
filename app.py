@@ -193,7 +193,7 @@ else:
             selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed")
             st.info(f"Scanning Hostinger database timelines for: **{selected_course}**")
             
-            c_col1, c_col2 = st.columns()
+            c_col1, c_col2 = st.columns(2)  # Fixed: Added '2' to create two equal layout rows
             with c_col1:
                 selected_date = st.date_input("Target Date Lookup:", datetime.date.today(), label_visibility="collapsed")
             with c_col2:
