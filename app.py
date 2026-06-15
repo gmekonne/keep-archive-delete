@@ -31,32 +31,33 @@ def hash_password(password):
     """Encrypts passwords to match your existing hash format (SHA-256)."""
     return hashlib.sha256(str.encode(password)).hexdigest()
 
+
 def verify_user(email, password):
-    """Validates login attempts against your live Hostinger user table using PHP Bcrypt compatibility."""
+    """Validates login attempts against your live Hostinger user table using native bcrypt."""
     try:
         conn = get_mysql_connection()
         with conn.cursor() as cursor:
-            # Step 1: Pull the record by email first
+            # Pull the record by email first
             sql = "SELECT userID, fname, lname, password FROM user WHERE email = %s"
             cursor.execute(sql, (email.lower().strip(),))
             user_record = cursor.fetchone()
         conn.close()
         
-        # Step 2: If the user exists, use passlib to verify the plain text password against the PHP hash
         if user_record:
             stored_php_hash = user_record["password"]
             
-            # This handles PHP's $2y$ blowfish/bcrypt verification flawlessly
-            if bcrypt.verify(password, stored_php_hash):
-                return user_record  # Password matches, return instructor profile payload
+            # Convert string inputs to byte structures for Python's native bcrypt engine
+            user_password_bytes = password.encode("utf-8")
+            database_hash_bytes = stored_php_hash.encode("utf-8")
+            
+            # Directly checks the plaintext password against the PHP bcrypt hash
+            if bcrypt.checkpw(user_password_bytes, database_hash_bytes):
+                return user_record  # Successful match!
                 
-        return None  # No email match or incorrect password
+        return None
     except Exception as e:
         st.error(f"Database Connection Error: {e}")
         return None
-
-
-
 
 
 
