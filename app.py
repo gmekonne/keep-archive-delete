@@ -27,9 +27,7 @@ def get_mysql_connection():
     )
 
 def hash_password(password):
-    """Encrypts passwords to match your existing hash format (SHA-256).
-    Change this hashing method if your Hostinger system uses MD5, bcrypt, or phpass.
-    """
+    """Encrypts passwords to match your existing hash format (SHA-256)."""
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 def verify_user(email, password):
@@ -37,12 +35,11 @@ def verify_user(email, password):
     try:
         conn = get_mysql_connection()
         with conn.cursor() as cursor:
-            # Using your exact table 'user' and fields 'email' and 'password'
             sql = "SELECT userID, fname, lname FROM user WHERE email = %s AND password = %s"
             cursor.execute(sql, (email.lower().strip(), hash_password(password)))
             user_record = cursor.fetchone()
         conn.close()
-        return user_record  # Returns the dictionary matching the row if found, otherwise None
+        return user_record
     except Exception as e:
         st.error(f"Database Connection Error: {e}")
         return None
@@ -64,7 +61,6 @@ if not st.session_state.logged_in:
     st.title("🔒 5-Star Presentation Rater Portal")
     st.write("Secure Instructor Gateway • Connected directly to Hostinger production servers.")
     
-    # Simple login container centered on screen
     login_email = st.text_input("Email Address", key="login_email_input")
     login_password = st.text_input("Password", type="password", key="login_pass_input")
     
@@ -121,7 +117,6 @@ else:
     def get_instructor_courses(user_id):
         try:
             conn = get_mysql_connection()
-            # Mapping your exact 'course' table columns cleanly to readable dashboard metrics
             query = """
                 SELECT 
                     courseID AS 'Course No.', 
@@ -200,12 +195,11 @@ else:
                 c_term = st.text_input("Academic Term (e.g. Fall 2026)")
                 c_instruct = st.text_area("Special Instructions", value="None")
                 
-                  if st.button("Commit Course to Hostinger Database", use_container_width=True):
+                if st.button("Commit Course to Hostinger Database", use_container_width=True):
                     if c_code and c_sec and c_title:
                         try:
                             conn = get_mysql_connection()
                             with conn.cursor() as cursor:
-                                # Securely inject values using your exact column schema
                                 sql = """
                                     INSERT INTO course 
                                     (courseSection, courseCode, courseTitle, courseDate, instruction, courseTerm, userID, ratingType, syllabus_text) 
@@ -238,3 +232,4 @@ else:
         with col2:
             if st.button("📥 Download Brightspace CSV", use_container_width=True): 
                 st.toast("Export engine processing data grids...")
+
