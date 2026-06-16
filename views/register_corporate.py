@@ -15,7 +15,7 @@ with st.form("corporate_registration_form"):
     corp_name = st.text_input("Institution / Corporation Name")
     org_id = st.text_input("Assigned Organization ID (orgID)")
     
-    submit = st.form_submit_button("Register Corporate Account", use_container_width=True)
+    submit = st.form_submit_button("Register Paid Corporate Account", use_container_width=True)
 
 if submit:
     if not email or not password or not corp_name or not org_id:
@@ -24,6 +24,11 @@ if submit:
         st.error("Passwords do not match.")
     else:
         try:
+            # Calculate initial paid subscription status and expiry date
+            current_date = datetime.date.today()
+            expiry_date = current_date + datetime.timedelta(days=365)  # +12 months
+            subscription_status = 'pending'  # Pending until PayPal confirms payment
+            
             conn = pymysql.connect(
                 host=st.secrets["mysql"]["host"],
                 user=st.secrets["mysql"]["user"],
@@ -31,21 +36,23 @@ if submit:
                 database=st.secrets["mysql"]["database"],
                 port=st.secrets["mysql"].get("port", 3306)
             )
+            
             hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             if hashed_password.startswith("$2b$"):
                 hashed_password = hashed_password.replace("$2b$", "$2y$", 1)
                 
             with conn.cursor() as cursor:
+                # Updated SQL matching corporate subscription setup
                 sql = """
-                    INSERT INTO user (role, fname, lname, email, password, corp_name, acct_type, orgID, dateCreated) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO user (role, fname, lname, email, password, corp_name, acct_type, orgID, dateCreated, expirty_date, subscription_status) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 cursor.execute(sql, (
                     "instructor", fname, lname, email.lower().strip(), 
-                    hashed_password, corp_name, "corporate", org_id, datetime.datetime.now()
+                    hashed_password, corp_name, "corporate", org_id, current_date, expiry_date, subscription_status
                 ))
             conn.commit()
             conn.close()
-            st.success("🏢 Corporate profile synchronized successfully!")
+            st.success("🏢 Corporate profile created! Your account status is 'pending' until the PayPal transaction is confirmed.")
         except Exception as e:
             st.error(f"Error: {e}")
