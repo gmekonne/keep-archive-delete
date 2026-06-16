@@ -52,22 +52,37 @@ st.markdown("---")
 def get_instructor_courses(user_id):
     try:
         conn = get_mysql_connection()
-        query = """
-            SELECT 
-                courseID AS 'Course No.', 
-                courseCode AS 'Course Code', 
-                courseSection AS 'Course Section', 
-                courseDate AS 'Course Date',
-                courseTitle AS 'Course Title'
-            FROM course 
-            WHERE userID = %s
-        """
-        df = pd.read_sql_query(query, conn, params=(int(user_id),))
+        # Force your incoming ID parameter into a strict Python numerical integer
+        target_uid = int(user_id)
+        
+        with conn.cursor() as cursor:
+            query = """
+                SELECT 
+                    courseID AS 'Course No.', 
+                    courseCode AS 'Course Code', 
+                    courseSection AS 'Course Section', 
+                    courseDate AS 'Course Date',
+                    courseTitle AS 'Course Title'
+                FROM course 
+                WHERE userID = %s
+            """
+            # Native cursor execution with tuple wrapper provides perfect binding alignment
+            cursor.execute(query, (target_uid,))
+            rows = cursor.fetchall()
+            
         conn.close()
-        return df
+        
+        # Build clean data frames from the raw dictionary output lists
+        if rows:
+            return pd.DataFrame(rows)
+        else:
+            return pd.DataFrame(columns=["Course No.", "Course Code", "Course Section", "Course Date", "Course Title"])
+            
     except Exception as database_error:
         st.error(f"Error compiling course data matrix: {database_error}")
         return pd.DataFrame(columns=["Course No.", "Course Code", "Course Section", "Course Date", "Course Title"])
+
+
 
 user_courses_df = get_instructor_courses(current_uid)
 
