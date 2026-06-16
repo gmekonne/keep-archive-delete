@@ -27,11 +27,18 @@ if not st.session_state.logged_in:
     # Render whatever page view file the user selects from the sidebar menu
     pg.run()
 
-# =====================================================================
-# PRIVATE VIEW: ROUTE TO SECURE WORKSPACE AREA
-# =====================================================================
+
+
 else:
-    # When authorized, bypass all registration pages and execute dashboard directly
-    with open("views/dashboard.py", encoding="utf-8") as f:
-        code = compile(f.read(), "views/dashboard.py", "exec")
-        exec(code, globals())
+    # =====================================================================
+    # PRIVATE VIEW: WORKSPACE CONSOLE AREA
+    # =====================================================================
+    # Define your dashboard view file as the single, active application page routing map
+    dashboard_page = st.Page("views/dashboard.py", title="🎓 Instructor Workspace", default=True)
+    
+    # Passing an empty list to previous sections completely wipes the login/registration links from the left menu
+    pg = st.navigation([dashboard_page])
+    
+    # Natively run the script to display your wide dashboard grids, metric cards, and controls
+    pg.run()
+
