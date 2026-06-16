@@ -21,8 +21,8 @@ if not st.session_state.logged_in:
     
     # If the user is on the main landing page, render the login form structure
     if pg.title == "🔑 Log In Portal":
-        st.set_page_config(page_title="5-Star Portal Login", layout="wide")
-        st.title("🔒 5-Star Presentation Rater Portal")
+        st.set_page_config(page_title="ClassParticipation Portal Login", layout="wide")
+        st.title("🔒 ClassParticipation Portal")
         st.write("Secure Instructor Gateway • Connected directly to Hostinger production servers.")
         
         import pymysql, bcrypt
