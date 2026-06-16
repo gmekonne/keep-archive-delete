@@ -130,11 +130,16 @@ with right_panel:
 
 st.markdown("---")
 st.subheader("⚙️ Control & Operations Console")
-tab1, tab2 = st.tabs(["📂 1. Courses and Class Setup", "⭐ 2. Presentations and Ratings"])
 
-with tab1:
+# Create the two main section containers exactly as requested
+sec1_expander = st.expander("📂 1. Courses and Class Setup", expanded=True)
+sec2_expander = st.expander("⭐ 2. Presentations and Ratings", expanded=True)
+
+# --- SECTION 1: COURSES AND CLASS SETUP ---
+with sec1_expander:
     col1, col2 = st.columns(2)
     with col1:
+        # Trigger your existing database modal form when clicked
         @st.dialog("➕ Add New Course to Profile")
         def add_course_form():
             c_code = st.text_input("Course Code (e.g. COMP101)")
@@ -168,16 +173,34 @@ with tab1:
 
         if st.button("➕ Add Course", use_container_width=True):
             add_course_form()
+
+        if st.button("❌ View / Delete Course", use_container_width=True):
+            st.info("Course catalog list loaded.")
             
     with col2:
-        if st.button("🔄 Import Brightspace Students", use_container_width=True): 
-            st.toast("Roster script module mapped.")
+        if st.button("📈 View Contributions", use_container_width=True):
+            st.info("Contribution metrics loaded.")
+            
+        if st.button("🔄 Import Students from Brightspace", use_container_width=True):
+            st.info("Brightspace API / CSV connection triggered.")
 
-with tab2:
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🏅 Grade Presentations", use_container_width=True): 
-            st.toast("Evaluation rubrics live.")
-    with col2:
-        if st.button("📥 Download Brightspace CSV", use_container_width=True): 
-            st.toast("Export engine processing data grids...")
+
+# --- SECTION 2: PRESENTATIONS AND RATINGS ---
+with sec2_expander:
+    col3, col4 = st.columns(2)
+    with col3:
+        if st.button("👥 Load Presentations and Groups", use_container_width=True):
+            st.info("Group data synchronized.")
+            
+        if st.button("📝 Load Peer Ratings", use_container_width=True):
+            st.info("Peer evaluations imported.")
+            
+        if st.button("🏅 Grade Presentations", use_container_width=True):
+            st.info("Grading rubric interface active.")
+            
+    with col4:
+        if st.button("📊 View Grades", use_container_width=True):
+            st.info("Gradebook calculations displayed.")
+            
+        if st.button("📥 Download Brightspace CSV", use_container_width=True):
+            st.info("Generating Brightspace compatible CSV file...")
