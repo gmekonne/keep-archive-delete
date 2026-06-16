@@ -64,13 +64,12 @@ if not st.session_state.logged_in:
         # Otherwise execute and display the chosen views sub-file registration/reset script layout
         pg.run()
 
+
 else:
     # =====================================================================
     # AUTHENTICATED WORKSPACE: RUNS FULL DASHBOARD FROM VIEWS FOLDER
     # =====================================================================
-    # Reconfigure layout to standard wide canvas layout for the dashboard
-    st.set_page_config(page_title="Instructor Workspace Dashboard", layout="wide", initial_sidebar_state="expanded")
-    
-    # Dynamically inject and run your dashboard file
-    dashboard_view = st.Page("views/dashboard.py")
-    dashboard_view.run()
+    # Use python's built-in execution runner to render your dashboard file natively
+    with open("views/dashboard.py", encoding="utf-8") as f:
+        code = compile(f.read(), "views/dashboard.py", "exec")
+        exec(code, globals())
