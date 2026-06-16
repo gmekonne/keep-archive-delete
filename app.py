@@ -1,275 +1,76 @@
 import streamlit as st
-import subprocess
-import datetime
-import pandas as pd
-import pymysql
-import hashlib
-import bcrypt  # Import the Bcrypt parser at the top of your script
 
-# Set page layout to wide dashboard design
-st.set_page_config(
-    page_title="5-Star Presentation Rater Dashboard", 
-    layout="wide", 
-    initial_sidebar_state="expanded"
-)
-
-# =====================================================================
-# LIVE HOSTINGER MYSQL CONNECTION ENGINE
-# =====================================================================
-def get_mysql_connection():
-    """Establishes a connection to your live Hostinger MySQL server using Streamlit Secrets."""
-    return pymysql.connect(
-        host=st.secrets["mysql"]["host"],
-        user=st.secrets["mysql"]["user"],
-        password=st.secrets["mysql"]["password"],
-        database=st.secrets["mysql"]["database"],
-        port=st.secrets["mysql"].get("port", 3306),
-        cursorclass=pymysql.cursors.DictCursor
-    )
-
-def hash_password(password):
-    """Encrypts passwords to match your existing hash format (SHA-256)."""
-    return hashlib.sha256(str.encode(password)).hexdigest()
-
-
-def verify_user(email, password):
-    """Validates login attempts against your live Hostinger user table using native bcrypt."""
-    try:
-        conn = get_mysql_connection()
-        with conn.cursor() as cursor:
-            # Pull the record by email first
-            sql = "SELECT userID, fname, lname, password FROM user WHERE email = %s"
-            cursor.execute(sql, (email.lower().strip(),))
-            user_record = cursor.fetchone()
-            conn.close()
-        
-        if user_record:
-            stored_php_hash = user_record["password"]
-            
-            # Convert string inputs to byte structures for Python's native bcrypt engine
-            user_password_bytes = password.encode("utf-8")
-            database_hash_bytes = stored_php_hash.encode("utf-8")
-            
-            # Directly checks the plaintext password against the PHP bcrypt hash
-            if bcrypt.checkpw(user_password_bytes, database_hash_bytes):
-                return user_record  # Successful match!
-                
-        return None
-    except Exception as e:
-        st.error(f"Database Connection Error: {e}")
-        return None
-
-
-
-
-# Maintain active login state and instructor metadata across app interactions
+# Setup global wide page layout configuration
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "user_name" not in st.session_state:
-    st.session_state.user_name = ""
-if "user_email" not in st.session_state:
-    st.session_state.user_email = ""
 
 # =====================================================================
-# AUTHENTICATION GATEWAY (Displayed Initially)
+# DYNAMIC ROUTING NAVIGATION CONTROLLER
 # =====================================================================
 if not st.session_state.logged_in:
-    st.title("🔒 ClassParticipation Portal")
-    st.write("Secure Instructor Gateway • Connected directly to Hostinger production servers.")
+    # Defining individual navigation pages for unauthenticated flows
+    login_page = st.Page("app.py", title="🔑 Log In Portal", default=True)
+    personal_reg = st.Page("views/register_personal.py", title="📝 Register Personal")
+    corporate_reg = st.Page("views/register_corporate.py", title="🏢 Register Corporate")
+    reset_pass = st.Page("views/reset_password.py", title="🔓 Reset Password")
     
-    login_email = st.text_input("Email Address", key="login_email_input")
-    login_password = st.text_input("Password", type="password", key="login_pass_input")
+    # Bundle together inside public authentication options layout
+    pg = st.navigation({
+        "Authentication Gateway": [login_page, personal_reg, corporate_reg, reset_pass]
+    })
     
-    if st.button("Log In to Dashboard", use_container_width=True):
-        user_data = verify_user(login_email, login_password)
-        if user_data:
-            st.session_state.logged_in = True
-            st.session_state.user_id = user_data["userID"]
-            st.session_state.user_name = f"{user_data['fname']} {user_data['lname']}"
-            st.session_state.user_email = login_email.lower().strip()
-            st.success(f"Access Granted! Welcome back, {st.session_state.user_name}.")
-            st.rerun()
-        else:
-            st.error("Invalid email or password. Please verify your credentials.")
-
-# =====================================================================
-# SECURE MAIN WORKSPACE (Only renders after verification success)
-# =====================================================================
-else:
-    current_uid = st.session_state.user_id
-    current_name = st.session_state.user_name
-    current_email = st.session_state.user_email
-
-    # --- SIDEBAR UTILITIES ---
-    with st.sidebar:
-        st.image("https://icons8.com", width=60)
-        st.title("System Control")
-        st.write(f"Instructor: **{current_name}**")
-        st.caption(f"ID: {current_uid} • {current_email}")
-        st.markdown("---")
+    # If the user is on the main landing page, render the login form structure
+    if pg.title == "🔑 Log In Portal":
+        st.set_page_config(page_title="5-Star Portal Login", layout="wide")
+        st.title("🔒 5-Star Presentation Rater Portal")
+        st.write("Secure Instructor Gateway • Connected directly to Hostinger production servers.")
         
-        with st.expander("🛠️ Maintenance Utilities", expanded=False):
-            if st.button("Start Data Management", use_container_width=True):
-                subprocess.run(["python", "start_data_management.py"])
-                st.success("Executed.")
-            if st.button("Complete Data Management", use_container_width=True):
-                subprocess.run(["python", "complete_data_management.py"])
-                st.success("Completed.")
-                    
-        st.markdown("---")
-        if st.button("🚪 Log Out", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.user_id = None
-            st.session_state.user_name = ""
-            st.session_state.user_email = ""
-            st.rerun()
+        import pymysql, bcrypt
+        # Re-importing connection layout helper internally
+        def get_mysql_connection():
+            return pymysql.connect(
+                host=st.secrets["mysql"]["host"],
+                user=st.secrets["mysql"]["user"],
+                password=st.secrets["mysql"]["password"],
+                database=st.secrets["mysql"]["database"],
+                port=st.secrets["mysql"].get("port", 3306),
+                cursorclass=pymysql.cursors.DictCursor
+            )
 
-    # --- MAIN DASHBOARD WORKSPACE ---
-    st.title("🎓 Instructor Dashboard")
-    st.markdown("Welcome! From here, you can enter your course, view presentations, manage groups, review ratings, and export grades.")
-    st.markdown("---")
-
-    # FIXED INDENTATION: Fetch courses dynamically from Hostinger MySQL filtered precisely by this instructor's userID
-    def get_instructor_courses(user_id):
-        try:
-            conn = get_mysql_connection()
-            target_uid = int(user_id) 
-            
-            with conn.cursor() as cursor:
-                query = """
-                    SELECT 
-                        courseID AS 'Course No.', 
-                        courseCode AS 'Course Code', 
-                        courseSection AS 'Course Section', 
-                        courseDate AS 'Course Date',
-                        courseTitle AS 'Course Title'
-                    FROM course 
-                    WHERE userID = %s
-                """
-                cursor.execute(query, (target_uid,))
-                rows = cursor.fetchall()
-            conn.close()
-            
-            if rows:
-                return pd.DataFrame(rows)
-            else:
-                return pd.DataFrame(columns=["Course No.", "Course Code", "Course Section", "Course Date", "Course Title"])
+        login_email = st.text_input("Email Address", key="login_email_input")
+        login_password = st.text_input("Password", type="password", key="login_pass_input")
+        
+        if st.button("Log In to Dashboard", use_container_width=True):
+            try:
+                conn = get_mysql_connection()
+                with conn.cursor() as cursor:
+                    sql = "SELECT userID, fname, lname, password FROM user WHERE email = %s"
+                    cursor.execute(sql, (login_email.lower().strip(),))
+                    user_record = cursor.fetchone()
+                conn.close()
                 
-        except Exception as database_error:
-            st.error(f"Error compiling course data matrix: {database_error}")
-            return pd.DataFrame(columns=["Course No.", "Course Code", "Course Section", "Course Date", "Course Title"])
+                if user_record and bcrypt.checkpw(login_password.encode('utf-8'), user_record["password"].encode('utf-8')):
+                    st.session_state.logged_in = True
+                    st.session_state.user_id = user_record["userID"]
+                    st.session_state.user_name = f"{user_record['fname']} {user_record['lname']}"
+                    st.session_state.user_email = login_email.lower().strip()
+                    st.success("Access Granted!")
+                    st.rerun()
+                else:
+                    st.error("Invalid email or password.")
+            except Exception as ex:
+                st.error(f"Database connection error: {ex}")
+    else:
+        # Otherwise execute and display the chosen views sub-file registration/reset script layout
+        pg.run()
 
-    user_courses_df = get_instructor_courses(current_uid)
-
-    # Top Metric Summaries Row
-    m_col1, m_col2, m_col3 = st.columns(3)
-    with m_col1:
-        st.metric(label="Your Registered Courses", value=str(len(user_courses_df)))
-    with m_col2:
-        st.metric(label="Average Presentation Evaluation", value="4.85 / 5.0")
-    with m_col3:
-        st.metric(label="Database Pipeline", value="Hostinger Live Sync")
-
-
-
-
-
-
-
-
-
-
-
-
-
-    st.markdown("---")
-
-    # Split Screen Layout Row
-    left_panel, right_panel = st.columns(2) #  Explicitly tells Python to build 2 panels side-by-side
-
+else:
+    # =====================================================================
+    # AUTHENTICATED WORKSPACE: RUNS FULL DASHBOARD FROM VIEWS FOLDER
+    # =====================================================================
+    # Reconfigure layout to standard wide canvas layout for the dashboard
+    st.set_page_config(page_title="Instructor Workspace Dashboard", layout="wide", initial_sidebar_state="expanded")
     
-    with left_panel:
-        st.subheader("📚 Your Courses")
-        if user_courses_df.empty:
-            st.info("No courses found under your account. Use the operational panel below to add a course.")
-        else:
-            st.dataframe(user_courses_df, use_container_width=True, hide_index=True)
-
-    with right_panel:
-        st.subheader("📅 Participation Calendar")
-        if user_courses_df.empty:
-            st.caption("Awaiting course entries to establish scheduling modules.")
-        else:
-            selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed")
-            st.info(f"Scanning Hostinger database timelines for: **{selected_course}**")
-            
-            c_col1, c_col2 = st.columns(2)  # Fixed: Added '2' to create two equal layout rows
-            with c_col1:
-                selected_date = st.date_input("Target Date Lookup:", datetime.date.today(), label_visibility="collapsed")
-            with c_col2:
-                @st.dialog("Presentation Details")
-                def show_details(course, date):
-                    st.write(f"### 📋 Details for {course}")
-                    st.write(f"**Date:** {date.strftime('%B %d, %Y')}")
-                    st.warning("No live presentation listings mapped to this date context yet.")
-
-                if st.button("👁️ View Details", use_container_width=True):
-                    show_details(selected_course, selected_date)
-
-    st.markdown("---")
-    st.subheader("⚙️ Control & Operations Console")
-    tab1, tab2 = st.tabs(["📂 1. Courses and Class Setup", "⭐ 2. Presentations and Ratings"])
-
-    with tab1:
-        col1, col2 = st.columns(2)
-        with col1:
-            # --- INTERACTIVE MODAL TO SAVE COURSE BACK TO HOSTINGER ---
-            @st.dialog("➕ Add New Course to Profile")
-            def add_course_form():
-                c_code = st.text_input("Course Code (e.g. COMP101)")
-                c_sec = st.text_input("Section Descriptor (e.g. Section A)")
-                c_title = st.text_input("Full Course Title")
-                c_sched = st.text_input("Schedule Summary (e.g. Mon/Wed 10:00 AM)")
-                c_term = st.text_input("Academic Term (e.g. Fall 2026)")
-                c_instruct = st.text_area("Special Instructions", value="None")
-                
-                if st.button("Commit Course to Hostinger Database", use_container_width=True):
-                    if c_code and c_sec and c_title:
-                        try:
-                            conn = get_mysql_connection()
-                            with conn.cursor() as cursor:
-                                sql = """
-                                    INSERT INTO course 
-                                    (courseSection, courseCode, courseTitle, courseDate, instruction, courseTerm, userID, ratingType, syllabus_text) 
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                """
-                                cursor.execute(sql, (
-                                    c_sec, c_code, c_title, c_sched, c_instruct, c_term, current_uid, "5-Star", "Syllabus details pending..."
-                                ))
-                            conn.commit()
-                            conn.close()
-                            st.success("Course logged permanently to your database matrix!")
-                            st.rerun()
-                        except Exception as ex:
-                            st.error(f"Failed to record course parameters to MySQL server: {ex}")
-                    else:
-                        st.error("Course Code, Section, and Title fields are strictly required.")
-
-            if st.button("➕ Add Course", use_container_width=True):
-                add_course_form()
-                
-        with col2:
-            if st.button("🔄 Import Brightspace Students", use_container_width=True): 
-                st.toast("Roster script module mapped.")
-
-    with tab2:
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🏅 Grade Presentations", use_container_width=True): 
-                st.toast("Evaluation rubrics live.")
-        with col2:
-            if st.button("📥 Download Brightspace CSV", use_container_width=True): 
-                st.toast("Export engine processing data grids...")
-
+    # Dynamically inject and run your dashboard file
+    dashboard_view = st.Page("views/dashboard.py")
+    dashboard_view.run()
