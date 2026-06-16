@@ -1,44 +1,42 @@
 import streamlit as st
 
-# Keep track of globally isolated authentication session states
+# Setup global application authorization tracker states
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# Global wide dashboard structure settings
-st.set_page_config(page_title="ClassParticipation Hub", layout="wide", initial_sidebar_state="expanded")
-
 # =====================================================================
-# PUBLIC VIEW: LANDING PAGES & LOGIN SIDEBAR DIRECTORY
+# PUBLIC CONFIGURATION: AVAILABLE TO ALL VISITORS (NO LOGIN REQUIRED)
 # =====================================================================
 if not st.session_state.logged_in:
-    # Build clean page route links to your sub-files
+    # Public Information & Login Pages
     home_page = st.Page("views/home.py", title="🏠 Welcome Home", default=True)
-    login_page = st.Page("views/login.py", title="🔑 Log In Portal")
+    login_page = st.Page("views/login.py", title="🔑 Instructor Sign In")
     personal_reg = st.Page("views/register_personal.py", title="📝 Register Personal")
     corporate_reg = st.Page("views/register_corporate.py", title="🏢 Register Corporate")
     reset_pass = st.Page("views/reset_password.py", title="🔓 Reset Password")
     
-    # Generate the public facing menu directory navigation map
+    # NEW PUBLIC LINK: Student Portal (Does not require login)
+    student_page = st.Page("views/student_dashboard.py", title="🎓 Student Hub Portal")
+    
+    # Group the public pages into clean categories in the left sidebar menu
     pg = st.navigation({
         "Information": [home_page],
+        "Student Zone": [student_page],
         "Instructor Account Gateway": [login_page, personal_reg, corporate_reg, reset_pass]
     })
     
-    # Render whatever page view file the user selects from the sidebar menu
+    # Natively render the selected public view file script
     pg.run()
 
-
-
+# =====================================================================
+# PRIVATE CONFIGURATION: LOCKED SECURE INSTRUCTOR AREA
+# =====================================================================
 else:
-    # =====================================================================
-    # PRIVATE VIEW: WORKSPACE CONSOLE AREA
-    # =====================================================================
-    # Define your dashboard view file as the single, active application page routing map
-    dashboard_page = st.Page("views/dashboard.py", title="🎓 Instructor Workspace", default=True)
+    # Once an instructor logs in, switch the entire sidebar to the private workspace view
+    dashboard_page = st.Page("views/dashboard.py", title="📊 Instructor Overview Console", default=True)
     
-    # Passing an empty list to previous sections completely wipes the login/registration links from the left menu
-    pg = st.navigation([dashboard_page])
+    pg = st.navigation({
+        "Instructor Console": [dashboard_page]
+    })
     
-    # Natively run the script to display your wide dashboard grids, metric cards, and controls
     pg.run()
-
