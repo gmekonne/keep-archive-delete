@@ -143,6 +143,9 @@ with sec1_expander:
         @st.dialog("➕ Add New Course to Profile")
         # --- INTERACTIVE MODAL TO SAVE COURSE & PRESENTATION DATES BACK TO HOSTINGER ---
         @st.dialog("➕ Add New Course to Profile", width="large")
+
+                # --- INTERACTIVE MODAL TO SAVE COURSE & PRESENTATION DATES BACK TO HOSTINGER ---
+        @st.dialog("➕ Add New Course to Profile", width="large")
         def add_course_form():
             # 1. Course Name / Code Input
             c_code = st.text_input("Course Name/Code *", placeholder="e.g., COMP101")
@@ -173,7 +176,7 @@ with sec1_expander:
                 rows=4
             )
             
-            # 7. MULTI-DATE CALENDAR SELECTION (Streamlit Native Replacement for multiple date picks)
+            # 7. MULTI-DATE CALENDAR SELECTION
             c_presentation_dates = st.date_input(
                 "Choose Presentation Date(s) *",
                 value=[],
@@ -191,14 +194,11 @@ with sec1_expander:
             
             # --- SUBMISSION TRANSACTION RUNNER ---
             if st.button("Save Course and Schedule Matrix", use_container_width=True):
-                # Validation safeguard
                 if not c_code or not c_presentation_dates:
                     st.error("Course Name/Code and at least one Selected Presentation Date are strictly required.")
                 else:
                     try:
                         conn = get_mysql_connection()
-                        
-                        # Use a single atomic context execution frame to protect data integrity
                         with conn.cursor() as cursor:
                             # STEP 1: Insert the main course profile parameter tracking rows
                             course_sql = """
@@ -206,11 +206,10 @@ with sec1_expander:
                                 (courseSection, courseCode, courseTitle, courseDate, instruction, courseTerm, userID, ratingType, syllabus_text) 
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                             """
-                            # Mapping fields precisely to your schema layout values
                             cursor.execute(course_sql, (
                                 c_sec, 
                                 c_code.strip(), 
-                                c_code.strip(), # Duplicated code to title for base validation placeholder
+                                c_code.strip(), 
                                 c_start_date.strftime('%Y-%m-%d'), 
                                 c_instruct.strip() if c_instruct else "None", 
                                 c_term_val, 
@@ -219,7 +218,6 @@ with sec1_expander:
                                 c_syllabus.strip() if c_syllabus else "Syllabus pending..."
                             ))
                             
-                            # Fetch the auto-incremented primary ID generated for this newly inserted course
                             new_course_id = cursor.lastrowid
                             
                             # STEP 2: Loop through selected calendar days to write to presentationdate table
@@ -229,28 +227,24 @@ with sec1_expander:
                             """
                             
                             inserted_slots_count = 0
-                            
-                            # Ensure single chosen date is converted to an iterable collection array element seamlessly
                             target_dates_list = c_presentation_dates if isinstance(c_presentation_dates, (list, tuple)) else [c_presentation_dates]
                             
                             for selected_day in target_dates_list:
                                 formatted_day_str = selected_day.strftime('%Y-%m-%d')
-                                
-                                # Duplicate insertion sequence loop matching your presentations-per-day multiplier
                                 for _ in range(int(num_pres_day)):
                                     cursor.execute(pres_date_sql, (new_course_id, formatted_day_str))
                                     inserted_slots_count += 1
                                     
-                        # Commit both database alterations atomically 
                         conn.commit()
                         conn.close()
-                        
                         st.success(f"🎉 Course saved! Added {inserted_slots_count} active presentation slots to 'presentationdate'.")
                         st.rerun()
-                        
                     except Exception as database_transaction_error:
                         st.error(f"Failed to record course data matrices: {database_transaction_error}")
 
+        
+        
+ 
         if st.button("➕ Add Course", use_container_width=True):
             add_course_form()
 
