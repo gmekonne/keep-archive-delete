@@ -48,12 +48,13 @@ c_instruct = st.text_area(
     height=150
 )
 
-# 7. MULTI-DATE CALENDAR SELECTION (FIXED)
+# 7. MULTI-DATE CALENDAR SELECTION (FIXED: Initialized as tuple to force multi-date accumulation retention)
 c_presentation_dates = st.date_input(
     "Choose Presentation Date(s) *",
-    value=datetime.date.today(),
+    value=(datetime.date.today(), datetime.date.today() + datetime.timedelta(days=7)),
     format="YYYY-MM-DD"
 )
+
 
 # 8. Number of Presentations Per Day Counter Selector
 num_pres_day = st.selectbox(
