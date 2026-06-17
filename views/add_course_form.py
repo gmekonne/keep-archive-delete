@@ -15,7 +15,7 @@ def get_mysql_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
-st.title("➕ Add New Course to Profile")
+# st.title("➕ Add New Course to Profile")
 st.write("Enter course configurations and presentation dates below.")
 st.markdown("---")
 
