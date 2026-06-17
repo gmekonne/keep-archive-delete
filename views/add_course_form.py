@@ -15,7 +15,7 @@ def get_mysql_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
-# st.title("➕ Add New Course to Profile")
+st.title("➕ Add New Course to Profile")
 st.write("Enter course configurations and presentation dates below.")
 st.markdown("---")
 
@@ -48,12 +48,11 @@ c_instruct = st.text_area(
     height=120
 )
 
-# 7. MULTI-DATE ACCUMULATOR FIELD (Generates a dynamic checklist of calendar dates)
+# 7. MULTI-DATE ACCUMULATOR FIELD (Generates a dynamic list of calendar dates)
 st.markdown("##### Choose Date(s) *")
 today = datetime.date.today()
-# Generate a rolling list of the next 180 calendar days (covering a full semester)
-semester_calendar_days = [today + datetime.timedelta(days=x) for x in range(180)]
-# Format days into strings for clear multi-select display options
+# Generate a rolling list of the next 120 calendar days (covering a full semester)
+semester_calendar_days = [today + datetime.timedelta(days=x) for x in range(120)]
 date_options_strings = [d.strftime("%Y-%m-%d (%A)") for d in semester_calendar_days]
 
 selected_date_strings = st.multiselect(
@@ -80,6 +79,8 @@ if st.button("Save Course and Schedule Matrix", width="stretch"):
     else:
         try:
             conn = get_mysql_connection()
+            current_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
             with conn.cursor() as cursor:
                 # STEP 1: Insert the main course profile parameters
                 course_sql = """
@@ -101,10 +102,12 @@ if st.button("Save Course and Schedule Matrix", width="stretch"):
                 
                 new_course_id = cursor.lastrowid
                 
-                # STEP 2: Extract, sort, and loop through the selected date strings to write to presentationdate
+                # STEP 2: Loop through the selected date strings to write to presentationdate
+                # Using your exact column schema: presDate, date_entered, courseID, courseSection, termID, userID
                 pres_date_sql = """
-                    INSERT INTO presentationdate (courseID, pdate) 
-                    VALUES (%s, %s)
+                    INSERT INTO presentationdate 
+                    (presDate, date_entered, courseID, courseSection, termID, userID) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 """
                 
                 inserted_slots_count = 0
@@ -114,7 +117,14 @@ if st.button("Save Course and Schedule Matrix", width="stretch"):
                     
                     # Duplicate slot insertion loop matching your presentations count limit per day
                     for _ in range(int(num_pres_day)):
-                        cursor.execute(pres_date_sql, (new_course_id, raw_date_iso))
+                        cursor.execute(pres_date_sql, (
+                            raw_date_iso,
+                            current_timestamp,
+                            new_course_id,
+                            c_sec,
+                            int(c_term_val),
+                            int(current_uid)
+                        ))
                         inserted_slots_count += 1
                         
             conn.commit()
