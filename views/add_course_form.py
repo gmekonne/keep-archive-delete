@@ -34,25 +34,25 @@ c_term_val = c_term_options[c_term_label]
 alphabet_sections = [chr(i) for i in range(ord('A'), ord('Z')+1)]
 c_sec = st.selectbox("Class Section *", options=alphabet_sections)
 
-# 5. Course Outline / Syllabus Textarea (FIXED: Height parameter used)
+# 5. Course Outline / Syllabus Textarea
 c_syllabus = st.text_area(
     "Paste Course Outline or Syllabus", 
     placeholder="Paste the course description, objectives, and weekly topics here...",
     height=200
 )
 
-# 6. Presentation Guidelines Textarea (FIXED: Height parameter used)
+# 6. Presentation Guidelines Textarea
 c_instruct = st.text_area(
     "Guidelines of Presentation (students will view them when entering their presentation).",
     placeholder="e.g., Topic selection, presentation duration, rewards for best presentation(s), etc.",
     height=150
 )
 
-# 7. MULTI-DATE CALENDAR SELECTION
+# 7. MULTI-DATE CALENDAR SELECTION (FIXED)
 c_presentation_dates = st.date_input(
     "Choose Presentation Date(s) *",
-    value=[],
-    placeholder="Click to pick one or multiple dates"
+    value=datetime.date.today(),
+    format="YYYY-MM-DD"
 )
 
 # 8. Number of Presentations Per Day Counter Selector
