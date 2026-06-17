@@ -19,10 +19,6 @@ st.title("➕ Add New Course to Profile")
 st.write("Enter course configurations and presentation dates below.")
 st.markdown("---")
 
-# Initialize session state array to track list of selected dates across re-runs
-if "semester_dates_bucket" not in st.session_state:
-    st.session_state.semester_dates_bucket = []
-
 # 1. Course Name / Code Input
 c_code = st.text_input("Course Name/Code *", placeholder="e.g., COMP101")
 
@@ -52,38 +48,23 @@ c_instruct = st.text_area(
     height=120
 )
 
-st.markdown("---")
-st.markdown("### 📅 Presentation Schedule Matrix Setup")
+# 7. MULTI-DATE ACCUMULATOR FIELD (Generates a dynamic checklist of calendar dates)
+st.markdown("##### Choose Date(s) *")
+today = datetime.date.today()
+# Generate a rolling list of the next 180 calendar days (covering a full semester)
+semester_calendar_days = [today + datetime.timedelta(days=x) for x in range(180)]
+# Format days into strings for clear multi-select display options
+date_options_strings = [d.strftime("%Y-%m-%d (%A)") for d in semester_calendar_days]
 
-# 7. MULTI-DATE ACCUMULATOR INTERFACE (Fixed to allow unlimited non-consecutive picks)
-col_date_pick, col_date_btn = st.columns([2, 1])
-
-with col_date_pick:
-    picker_date = st.date_input("Pick a Presentation Date", datetime.date.today())
-with col_date_btn:
-    st.write("##") # Visual alignment padding spacer
-    if st.button("➕ Add Date to Schedule", width="stretch"):
-        if picker_date not in st.session_state.semester_dates_bucket:
-            st.session_state.semester_dates_bucket.append(picker_date)
-            # Sort the dates chronologically automatically
-            st.session_state.semester_dates_bucket.sort()
-
-# Visual Display showing the instructor exactly what dates have been collected so far
-if st.session_state.semester_dates_bucket:
-    st.info("📋 **Currently Collected Semester Presentation Dates:**")
-    # Display dates as clean visual tag summaries with a button to wipe selection if needed
-    for i, date_item in enumerate(st.session_state.semester_dates_bucket):
-        st.markdown(f"• **Date #{i+1}:** {date_item.strftime('%A, %B %d, %Y')}")
-    
-    if st.button("🗑️ Clear All Selected Dates"):
-        st.session_state.semester_dates_bucket = []
-        st.rerun()
-else:
-    st.warning("⚠️ No presentation dates have been added to this course matrix yet.")
+selected_date_strings = st.multiselect(
+    "Click below to select and highlight all presentation dates for the semester:",
+    options=date_options_strings,
+    placeholder="Select multiple dates..."
+)
 
 # 8. Number of Presentations Per Day Counter Selector
 num_pres_day = st.selectbox(
-    "Number of Presentations per Day for Selected Dates", 
+    "Number of Presentations per Day", 
     options=[i for i in range(1, 11)], 
     index=0
 )
@@ -94,8 +75,8 @@ st.markdown("---")
 if st.button("Save Course and Schedule Matrix", width="stretch"):
     if not c_code:
         st.error("Course Name/Code field is strictly required.")
-    elif not st.session_state.semester_dates_bucket:
-        st.error("You must accumulate at least one presentation date to establish the schedule.")
+    elif not selected_date_strings:
+        st.error("You must select at least one presentation date for the semester field.")
     else:
         try:
             conn = get_mysql_connection()
@@ -120,27 +101,24 @@ if st.button("Save Course and Schedule Matrix", width="stretch"):
                 
                 new_course_id = cursor.lastrowid
                 
-                # STEP 2: Loop through the collected semester dates from session state bucket
+                # STEP 2: Extract, sort, and loop through the selected date strings to write to presentationdate
                 pres_date_sql = """
                     INSERT INTO presentationdate (courseID, pdate) 
                     VALUES (%s, %s)
                 """
                 
                 inserted_slots_count = 0
-                for selected_day in st.session_state.semester_dates_bucket:
-                    formatted_day_str = selected_day.strftime('%Y-%m-%d')
+                for date_str in selected_date_strings:
+                    # Extract the raw 'YYYY-MM-DD' segment back out of our formatted string selection
+                    raw_date_iso = date_str.split(" ")[0]
                     
-                    # Duplicate slot insertion matching your exact multi-presentations count limit per day
+                    # Duplicate slot insertion loop matching your presentations count limit per day
                     for _ in range(int(num_pres_day)):
-                        cursor.execute(pres_date_sql, (new_course_id, formatted_day_str))
+                        cursor.execute(pres_date_sql, (new_course_id, raw_date_iso))
                         inserted_slots_count += 1
                         
             conn.commit()
             conn.close()
-            
-            # Wiping the date accumulator memory clean following a successful insertion task
-            st.session_state.semester_dates_bucket = []
-            
             st.success(f"🎉 Course saved! Added {inserted_slots_count} active presentation slots to 'presentationdate'.")
             st.rerun()
             
