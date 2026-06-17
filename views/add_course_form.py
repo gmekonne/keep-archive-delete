@@ -34,18 +34,18 @@ c_term_val = c_term_options[c_term_label]
 alphabet_sections = [chr(i) for i in range(ord('A'), ord('Z')+1)]
 c_sec = st.selectbox("Class Section *", options=alphabet_sections)
 
-# 5. Course Outline / Syllabus Textarea
+# 5. Course Outline / Syllabus Textarea (FIXED: Height parameter used)
 c_syllabus = st.text_area(
     "Paste Course Outline or Syllabus", 
     placeholder="Paste the course description, objectives, and weekly topics here...",
-    rows=5
+    height=200
 )
 
-# 6. Presentation Guidelines Textarea
+# 6. Presentation Guidelines Textarea (FIXED: Height parameter used)
 c_instruct = st.text_area(
     "Guidelines of Presentation (students will view them when entering their presentation).",
     placeholder="e.g., Topic selection, presentation duration, rewards for best presentation(s), etc.",
-    rows=4
+    height=150
 )
 
 # 7. MULTI-DATE CALENDAR SELECTION
@@ -65,7 +65,7 @@ num_pres_day = st.selectbox(
 st.markdown("---")
 
 # --- SUBMISSION TRANSACTION RUNNER ---
-if st.button("Save Course and Schedule Matrix", use_container_width=True):
+if st.button("Save Course and Schedule Matrix", width="stretch"):
     if not c_code or not c_presentation_dates:
         st.error("Course Name/Code and at least one Selected Presentation Date are strictly required.")
     else:
