@@ -27,6 +27,17 @@ def run_add_course_modal():
     with open("views/add_course_form.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/add_course_form.py", "exec"), globals())
 
+# NEW TRIGGER: Reads and renders your View/Delete catalog file on demand
+@st.dialog("❌ Manage Active Course Catalog", width="large")
+def run_manage_catalog_modal():
+    with open("views/view_delete_course.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/view_delete_course.py", "exec"), globals())
+
+
+
+
+
+
 # --- SIDEBAR UTILITIES ---
 with st.sidebar:
     st.image("https://icons8.com", width=60)
