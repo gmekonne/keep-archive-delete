@@ -38,7 +38,7 @@ if not catalog_list:
     st.info("You do not have any registered courses to administer.")
 else:
     # Build clean horizontal header tracking layout with Year and Term included
-    h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns()
+    h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns(6)
     with h_col1: st.markdown("**Course Code**")
     with h_col2: st.markdown("**Section**")
     with h_col3: st.markdown("**Term**")
@@ -70,7 +70,7 @@ else:
         # Unique tracking keys generated dynamically for each row button
         row_id_suffix = f"_{c_id}"
         
-        row_col1, row_col2, row_col3, row_col4, row_col5, row_col6 = st.columns()
+        row_col1, row_col2, row_col3, row_col4, row_col5, row_col6 = st.columns(6)
         with row_col1: st.write(c_code)
         with row_col2: st.write(c_sec)
         with row_col3: st.write(c_term_text)
