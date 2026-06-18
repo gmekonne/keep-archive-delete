@@ -9,36 +9,43 @@ if "logged_in" not in st.session_state:
 st.set_page_config(page_title="ClassParticipation Hub", layout="wide", initial_sidebar_state="expanded")
 
 # =====================================================================
-# DYNAMIC ROUTING NAVIGATION BLUEPRINT
+# PUBLIC CONFIGURATION: LANDING PAGES & STUDENT HUBS (NO LOGIN REQUIRED)
 # =====================================================================
-try:
-    if not st.session_state.logged_in:
-        # Public Information & Login Pages
-        home_page = st.Page("views/home.py", title="🏠 Welcome Home", default=True)
-        login_page = st.Page("views/login.py", title="🔑 Instructor Sign In")
-        personal_reg = st.Page("views/register_personal.py", title="📝 Register Personal")
-        corporate_reg = st.Page("views/register_corporate.py", title="🏢 Register Corporate")
-        reset_pass = st.Page("views/reset_password.py", title="🔓 Reset Password")
-        student_page = st.Page("views/student_dashboard.py", title="🎓 Student Hub Portal")
-        
-        # Group the public pages into clean categories in the left sidebar menu
-        pg = st.navigation({
-            "Information": [home_page],
-            "Student Zone": [student_page],
-            "Instructor Account Gateway": [login_page, personal_reg, corporate_reg, reset_pass]
-        })
-        pg.run()
-
-    else:
-        # Once an instructor logs in, switch the entire sidebar to the private workspace view
-        dashboard_page = st.Page("views/dashboard.py", title="📊 Instructor Overview Console", default=True)
-        pg = st.navigation({"Instructor Console": [dashboard_page]})
-        pg.run()
-
-except Exception as route_error:
-    st.error("🚨 Compilation Error Detected in Page Sub-Files!")
-    st.write("One of your views contains invalid syntax or an incomplete code block.")
+if not st.session_state.logged_in:
+    # Core Landing Information
+    home_page = st.Page("views/home.py", title="🏠 Welcome Home", default=True)
+    login_page = st.Page("views/login.py", title="🔑 Instructor Sign In")
     
-    # Extract the precise filename and line error layout context from python internals
-    error_details = traceback.format_exc()
-    st.code(error_details, language="text")
+    # Core Instructor Sign Up Pages
+    personal_reg = st.Page("views/register_personal.py", title="📝 Register Personal")
+    corporate_reg = st.Page("views/register_corporate.py", title="🏢 Register Corporate")
+    reset_pass = st.Page("views/reset_password.py", title="🔓 Reset Password")
+    
+    # NEW EXTENDED BLUEPRINT: 8 Isolated Student Zone Workspace Route Identifiers
+    st_create_acct = st.Page("views/student_create_account.py", title="👤 1. Create Student Account")
+    st_enter_pres  = st.Page("views/student_enter_presentation.py", title="🎤 2. Enter Presentation")
+    st_view_dates  = st.Page("views/student_view_dates.py", title="📅 3. View Presentation Dates")
+    st_view_inst   = st.Page("views/student_view_instructions.py", title="📋 4. View Presentation Guidelines")
+    st_view_rating = st.Page("views/student_view_ratings.py", title="⭐ 5. View Ratings & Feedback")
+    st_view_guide  = st.Page("views/student_view_guide.py", title="📖 6. View Student Guide")
+    st_enter_contrib = st.Page("views/student_enter_contribution.py", title="💡 7. Enter Class Contributions")
+    st_ai_feedback = st.Page("views/student_ai_feedback.py", title="🤖 8. AI-Generated Feedback")
+
+    # Construct the organized public multi-level sidebar layout matrix
+    pg = st.navigation({
+        "Information Channel": [home_page],
+        "Student Zone Workspace": [
+            st_create_acct, st_enter_pres, st_view_dates, st_view_inst, 
+            st_view_rating, st_view_guide, st_enter_contrib, st_ai_feedback
+        ],
+        "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass]
+    })
+    pg.run()
+
+# =====================================================================
+# PRIVATE CONFIGURATION: LOCKED SECURE INSTRUCTOR AREA
+# =====================================================================
+else:
+    dashboard_page = st.Page("views/dashboard.py", title="📊 Instructor Overview Console", default=True)
+    pg = st.navigation({"Instructor Console": [dashboard_page]})
+    pg.run()
