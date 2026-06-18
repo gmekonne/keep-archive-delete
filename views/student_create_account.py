@@ -16,11 +16,14 @@ st.title("👥 Student Registration & Group Portal")
 st.write("Register a new presentation team or update an existing team roster.")
 st.markdown("---")
 
+TERM_LABELS = {"1": "Fall", "2": "Winter", "3": "Summer"}
+
 def fetch_available_courses():
     try:
         conn = get_mysql_connection()
         with conn.cursor() as cursor:
-            cursor.execute("SELECT courseID, courseCode, courseSection FROM course")
+            # Explicitly query courseDate and courseTerm to prevent duplicate row mix-ups
+            cursor.execute("SELECT courseID, courseCode, courseSection, courseTerm, courseDate FROM course")
             courses = cursor.fetchall()
         conn.close()
         return courses
@@ -35,7 +38,24 @@ with tab_create:
     if not all_courses:
         st.warning("⚠️ No active courses are registered. Registration is offline.")
     else:
-        course_options = {f"{c['courseCode']} (Section {c['courseSection']})": c['courseID'] for c in all_courses}
+        # FIXED: Generates an unmistakable unique tracking label for each identical course row string
+        course_options = {}
+        for c in all_courses:
+            raw_term = str(c["courseTerm"])
+            term_text = TERM_LABELS.get(raw_term, f"Term {raw_term}")
+            
+            # Safely parse year from the date column tracking data
+            year_text = "N/A"
+            if c["courseDate"]:
+                if isinstance(c["courseDate"], (datetime.date, datetime.datetime)):
+                    year_text = str(c["courseDate"].year)
+                else:
+                    year_text = str(c["courseDate"]).split("-")[0]
+            
+            # Combine all 4 matching identifiers into a single label string
+            unique_label = f"{c['courseCode']} - Section {c['courseSection']} ({term_text} {year_text})"
+            course_options[unique_label] = c['courseID']
+            
         selected_course_label = st.selectbox("Select Your Course Track *", options=list(course_options.keys()), key="reg_course_sel")
         target_course_id = course_options[selected_course_label]
         
@@ -63,7 +83,6 @@ with tab_create:
                             clean_full_name = line.strip()
                             if clean_full_name:
                                 name_parts = clean_full_name.split(" ", 1)
-                                # FIXED syntax array references below
                                 f_name = name_parts[0].strip()
                                 l_name = name_parts[1].strip() if len(name_parts) > 1 else ""
                                 
@@ -124,7 +143,6 @@ with tab_modify:
                                 clean_full_name = line.strip()
                                 if clean_full_name:
                                     name_parts = clean_full_name.split(" ", 1)
-                                    # FIXED syntax array references below
                                     f_name = name_parts[0].strip()
                                     l_name = name_parts[1].strip() if len(name_parts) > 1 else ""
                                     cursor.execute(student_sql, (clean_full_name, f_name, l_name, int(mod_group_id), int(cached_meta["courseID"])))
