@@ -143,10 +143,14 @@ sec2_expander = st.expander("⭐ 2. Presentations and Ratings", expanded=True)
 with sec1_expander:
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("➕ Add Course", use_container_width=True):
-            run_add_course_modal()
-        if st.button("❌ View / Delete Course", use_container_width=True):
-            st.info("Course catalog list loaded.")
+        if st.button("➕ Add Course", width="stretch"):
+            run_add_course_modal()         
+        # FIXED: Call the catalog administration component overlay modal seamlessly
+        if st.button("❌ View / Delete Course", width="stretch"):
+            run_manage_catalog_modal()
+
+    
+    
     with col2:
         if st.button("📈 View Contributions", use_container_width=True): st.info("Contribution metrics loaded.")
         if st.button("🔄 Import Students from Brightspace", use_container_width=True): st.info("Brightspace triggered.")
