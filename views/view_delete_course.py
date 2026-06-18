@@ -66,7 +66,7 @@ else:
             if isinstance(course["courseDate"], (datetime.date, datetime.datetime)):
                 c_year_text = str(course["courseDate"].year)
             else:
-                c_year_text = str(course["courseDate"]).split("-")[0]
+                c_year_text = str(course["courseDate"]).split("-")
         
         row_id_suffix = f"_{c_id}"
         
@@ -80,9 +80,8 @@ else:
         with row_col6:
             act_col1, act_col2 = st.columns(2)
             
-            # --- 1. TOGGLE INLINE EDIT VIA SESSION STATE (FIXED: No st.rerun() to stop modal drops) ---
+            # --- 1. TOGGLE INLINE EDIT VIA SESSION STATE ---
             with act_col1:
-                # Setting this checkbox lookalike button element state changes without closing your parent dialog
                 if st.button("✏️", key=f"edit{row_id_suffix}", help="Open/Close Inline Schedule Editor Dashboard", width="stretch"):
                     st.session_state.current_edit_course_id = None if st.session_state.current_edit_course_id == c_id else c_id
                     st.rerun()
@@ -171,7 +170,7 @@ else:
                                     """
                                     
                                     for date_str in up_date_strings:
-                                        raw_date_iso = date_str.split(" ")[0]
+                                        raw_date_iso = date_str.split(" ")[0]  # Extracts just the 'YYYY-MM-DD' segment securely
                                         for _ in range(int(up_num_pres)):
                                             cursor.execute(sql_insert_pres_date, (
                                                 raw_date_iso,
@@ -184,3 +183,4 @@ else:
                                             
                             conn.commit()
                             conn.close()
+                            st.session_state.current_edit_course_id = None
