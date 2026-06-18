@@ -1,6 +1,9 @@
 import streamlit as st
 import pymysql
 import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 def get_mysql_connection():
     return pymysql.connect(
@@ -12,6 +15,51 @@ def get_mysql_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+# =====================================================================
+# SMTP AUTOMATED MAIL ENGINE
+# =====================================================================
+def send_group_confirmation_email(recipient_email, group_id, group_name, course_label):
+    """Logs into your outbound SMTP server and delivers group tracking parameters to the user."""
+    try:
+        sender = st.secrets["email"]["sender_email"]
+        password = st.secrets["email"]["sender_password"]
+        server_host = st.secrets["email"]["smtp_server"]
+        server_port = int(st.secrets["email"]["smtp_port"])
+        
+        msg = MIMEMultipart()
+        msg['From'] = sender
+        msg['To'] = recipient_email
+        msg['Subject'] = "🎓 5-Star Presentation Rater - Group Registration Confirmed"
+        
+        body = f"""Hello,
+
+Your presentation team roster has been successfully registered and synced with your instructor's course tracker!
+
+Here are your official group tracking parameters:
+-------------------------------------------------------------
+📚 Course Track: {course_label}
+👥 Group Name:   {group_name}
+🆔 System Group ID: {group_id}
+-------------------------------------------------------------
+
+⚠️ IMPORTANT: Keep your Group ID safe! Your team members will need to input this exact ID number when scheduling presentation dates or viewing peer feedback profiles.
+
+Best regards,
+The 5-Star Presentation Rater Automation Engine
+"""
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        
+        with smtplib.SMTP_SSL(server_host, server_port) as server:
+            server.login(sender, password)
+            server.sendmail(sender, recipient_email, msg.as_string())
+        return True
+    except Exception as mail_err:
+        st.sidebar.error(f"Mail Delivery Interrupted: {mail_err}")
+        return False
+
+# =====================================================================
+# UI LAYOUT INTERFACE
+# =====================================================================
 st.title("👥 Student Registration & Group Portal")
 st.write("Register a new presentation team or update an existing team roster.")
 st.markdown("---")
@@ -22,7 +70,6 @@ def fetch_available_courses():
     try:
         conn = get_mysql_connection()
         with conn.cursor() as cursor:
-            # Explicitly query courseDate and courseTerm to prevent duplicate row mix-ups
             cursor.execute("SELECT courseID, courseCode, courseSection, courseTerm, courseDate FROM course")
             courses = cursor.fetchall()
         conn.close()
@@ -38,21 +85,18 @@ with tab_create:
     if not all_courses:
         st.warning("⚠️ No active courses are registered. Registration is offline.")
     else:
-        # FIXED: Generates an unmistakable unique tracking label for each identical course row string
         course_options = {}
         for c in all_courses:
             raw_term = str(c["courseTerm"])
             term_text = TERM_LABELS.get(raw_term, f"Term {raw_term}")
             
-            # Safely parse year from the date column tracking data
             year_text = "N/A"
             if c["courseDate"]:
                 if isinstance(c["courseDate"], (datetime.date, datetime.datetime)):
                     year_text = str(c["courseDate"].year)
                 else:
-                    year_text = str(c["courseDate"]).split("-")[0]
+                    year_text = str(c["courseDate"]).split("-")
             
-            # Combine all 4 matching identifiers into a single label string
             unique_label = f"{c['courseCode']} - Section {c['courseSection']} ({term_text} {year_text})"
             course_options[unique_label] = c['courseID']
             
@@ -90,7 +134,14 @@ with tab_create:
                                 added_students_count += 1
                     conn.commit()
                     conn.close()
-                    st.success(f"🎉 Roster saved! Assigned Group ID: **{new_group_id}**.")
+                    
+                    # TRIGGER AUTO EMAIL TRANSMISSION ENGINE FOLLOWING COMMIT SUCCESS
+                    mail_sent = send_group_confirmation_email(g_email.strip(), new_group_id, g_name.strip(), selected_course_label)
+                    
+                    if mail_sent:
+                        st.success(f"🎉 Success! Group registered. ID: **{new_group_id}**. Confirmation sent to {g_email}.")
+                    else:
+                        st.success(f"🎉 Roster saved! ID: **{new_group_id}** (Mail server connection timed out, copy ID manually).")
                     st.rerun()
                 except Exception as tx_err:
                     st.error(f"Database registration failure: {tx_err}")
