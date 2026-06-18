@@ -76,9 +76,9 @@ else:
         with row_col6:
             act_col1, act_col2 = st.columns(2)
             with act_col1:
+                # FIXED: Removed st.rerun() so clicking does not drop the parent pop-up window
                 if st.button("✏️", key=f"edit{row_id_suffix}", width="stretch"):
                     st.session_state.current_edit_course_id = None if st.session_state.current_edit_course_id == c_id else c_id
-                    st.rerun()
             with act_col2:
                 if st.button("🗑️", key=f"del{row_id_suffix}", width="stretch"):
                     try:
@@ -162,7 +162,7 @@ else:
                         except Exception as update_err:
                             st.error(f"Failed to update table matrices: {update_err}")
                 with e_col2:
+                    # FIXED: Removed st.rerun() from cancel to stop the window from shutting down unexpectedly
                     if st.button("Cancel Changes", key=f"btn_cancel{row_id_suffix}", width="stretch"):
                         st.session_state.current_edit_course_id = None
-                        st.rerun()
         st.markdown("---")
