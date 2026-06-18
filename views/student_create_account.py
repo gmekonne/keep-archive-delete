@@ -16,7 +16,7 @@ def get_mysql_connection():
     )
 
 # =====================================================================
-# SMTP AUTOMATED MAIL ENGINE (FIXED WITH STANDARD TLS FALLBACKS & TIMEOUTS)
+# SMTP AUTOMATED MAIL ENGINE
 # =====================================================================
 def send_group_confirmation_email(recipient_email, group_id, group_name, course_label):
     """Logs into your outbound SMTP server and delivers group tracking parameters to the user."""
@@ -49,23 +49,20 @@ The 5-Star Presentation Rater Automation Engine
 """
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
-        # FIX: Try connection over secure SSL with a strict 7-second time boundary limitation
         try:
             with smtplib.SMTP_SSL(server_host, server_port, timeout=7) as server:
                 server.login(sender, password)
                 server.sendmail(sender, recipient_email, msg.as_string())
             return True
         except Exception:
-            # FIX FALLBACK: If standard SSL times out or blocks, try standard SMTP port with active TLS upgrading
             fallback_port = 587 if server_port == 465 else 465
             with smtplib.SMTP(server_host, fallback_port, timeout=7) as server:
-                server.starttls()  # Upgrades connection to secure TLS layer dynamically
+                server.starttls()
                 server.login(sender, password)
                 server.sendmail(sender, recipient_email, msg.as_string())
             return True
             
     except Exception as mail_err:
-        # Silently log the warning to the sidebar so the user's interface remains functional
         st.sidebar.warning(f"Notification engine skipped: {mail_err}")
         return False
 
@@ -93,6 +90,7 @@ def fetch_available_courses():
 all_courses = fetch_available_courses()
 tab_create, tab_modify = st.tabs(["➕ Register New Group", "🔄 Modify Existing Group"])
 
+# --- TAB 1: CREATE GROUP ---
 with tab_create:
     if not all_courses:
         st.warning("⚠️ No active courses are registered. Registration is offline.")
@@ -107,7 +105,7 @@ with tab_create:
                 if isinstance(c["courseDate"], (datetime.date, datetime.datetime)):
                     year_text = str(c["courseDate"].year)
                 else:
-                    year_text = str(c["courseDate"]).split("-")
+                    year_text = str(c["courseDate"]).split("-")[0]
             
             unique_label = f"{c['courseCode']} - Section {c['courseSection']} ({term_text} {year_text})"
             course_options[unique_label] = c['courseID']
@@ -139,7 +137,7 @@ with tab_create:
                             clean_full_name = line.strip()
                             if clean_full_name:
                                 name_parts = clean_full_name.split(" ", 1)
-                                f_name = name_parts[0].strip()
+                                f_name = name_parts[0].strip() if len(name_parts) > 0 else ""
                                 l_name = name_parts[1].strip() if len(name_parts) > 1 else ""
                                 
                                 cursor.execute(student_sql, (clean_full_name, f_name, l_name, int(new_group_id), int(target_course_id)))
@@ -147,9 +145,7 @@ with tab_create:
                     conn.commit()
                     conn.close()
                     
-                    # TRIGGER TIMEOUT PROTECTION EMAIL PIPELINE
                     mail_sent = send_group_confirmation_email(g_email.strip(), new_group_id, g_name.strip(), selected_course_label)
-                    
                     if mail_sent:
                         st.success(f"🎉 Success! Group registered. ID: **{new_group_id}**. Confirmation sent to {g_email}.")
                     else:
@@ -157,6 +153,8 @@ with tab_create:
                     st.rerun()
                 except Exception as tx_err:
                     st.error(f"Database registration failure: {tx_err}")
+
+# --- TAB 2: MODIFY GROUP ---
 with tab_modify:
     st.subheader("🛠️ Modify an Already Entered Group")
     mod_group_id = st.number_input("Enter Group ID *", min_value=1, step=1, key="mod_id_input")
@@ -192,11 +190,13 @@ with tab_modify:
             
             if st.button("Commit Group Modifications", width="stretch", key="btn_save_mod_group"):
                 if not up_g_name or not up_g_email or not up_g_students:
-                    st.error("All update fields must be filled out.")
+                    st.error("All fields are required.")
                 else:
                     try:
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
+                            cursor.execute("UPDATE presentationgroup SET groupName = %s, email_address = %s WHERE groupID = %s", (up_g_name.strip(), up_g_email.strip(), int(mod_group_id)))
+                            cursor.execute("DELETE FROM student WHERE groupID = %s", (int(mod_group_id),))
                             cursor.execute("UPDATE presentationgroup SET groupName = %s, email_address = %s WHERE groupID = %s", (up_g_name.strip(), up_g_email.strip(), int(mod_group_id)))
                             cursor.execute("DELETE FROM student WHERE groupID = %s", (int(mod_group_id),))
                             
@@ -206,7 +206,7 @@ with tab_modify:
                                 clean_full_name = line.strip()
                                 if clean_full_name:
                                     name_parts = clean_full_name.split(" ", 1)
-                                    f_name = name_parts[0].strip()
+                                    f_name = name_parts[0].strip() if len(name_parts) > 0 else ""
                                     l_name = name_parts[1].strip() if len(name_parts) > 1 else ""
                                     cursor.execute(student_sql, (clean_full_name, f_name, l_name, int(mod_group_id), int(cached_meta["courseID"])))
                         conn.commit()
