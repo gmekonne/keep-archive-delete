@@ -15,7 +15,11 @@ def get_mysql_connection():
         cursorclass=pymysql.cursors.DictCursor
     )
 
+# =====================================================================
+# SMTP AUTOMATED MAIL ENGINE (FIXED: Automated Handshake Selector Engine)
+# =====================================================================
 def send_group_confirmation_email(recipient_email, group_id, group_name, course_label):
+    """Automatically chooses the correct security handshake protocol based on your Hostinger port selection."""
     try:
         sender = st.secrets["email"]["sender_email"]
         password = st.secrets["email"]["sender_password"]
@@ -27,14 +31,26 @@ def send_group_confirmation_email(recipient_email, group_id, group_name, course_
         msg['To'] = recipient_email
         msg['Subject'] = "🎓 5-Star Presentation Rater - Group Registration Confirmed"
         
-        body = f"Hello,\n\nYour team has been registered successfully.\nGroup Name: {group_name}\nGroup ID: {group_id}\nCourse: {course_label}"
+        body = f"Hello,\n\nYour team has been registered successfully.\nGroup Name: {group_name}\nGroup ID: {group_id}\nCourse: {course_label}\n\nKeep your ID safe!"
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
-        with smtplib.SMTP_SSL(server_host, server_port, timeout=4) as server:
-            server.login(sender, password)
-            server.sendmail(sender, recipient_email, msg.as_string())
+        # PROTOCOL LAYER AUTO-SELECTION
+        if server_port == 465:
+            # Port 465 demands implicit encryption immediately upon socket opening
+            with smtplib.SMTP_SSL(server_host, server_port, timeout=5) as server:
+                server.login(sender, password)
+                server.sendmail(sender, recipient_email, msg.as_string())
+        else:
+            # Port 587 (or any alternative) begins unencrypted and upgrades dynamically via STARTTLS
+            with smtplib.SMTP(server_host, server_port, timeout=5) as server:
+                server.ehlo()
+                server.starttls()  # Cleanly upgrades the pipeline without throwing standard SSL version mismatch faults
+                server.ehlo()
+                server.login(sender, password)
+                server.sendmail(sender, recipient_email, msg.as_string())
         return True
     except Exception as e:
+        # Prevents any network errors or typos from freezing the student's screen canvas interface
         st.sidebar.warning(f"Mail delivery skipped: {e}")
         return False
 
