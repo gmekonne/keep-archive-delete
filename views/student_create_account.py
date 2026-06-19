@@ -153,7 +153,7 @@ with tab_create:
                         st.success(f"🎉 Success! Group registered. ID: **{new_group_id}**. Confirmation sent to {g_email}.")
                     else:
                         st.success(f"🎉 Roster saved successfully! System Group ID: **{new_group_id}**.")
-                    st.rerun()
+                    # st.rerun()
                 except Exception as tx_err:
                     st.error(f"Database registration failure: {tx_err}")
 
