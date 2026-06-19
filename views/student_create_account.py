@@ -145,9 +145,9 @@ with tab_create:
                     conn.commit()
                     conn.close()
 
-                    # Disable email sending temporarily
-                    # mail_sent = send_group_confirmation_email(g_email.strip(), new_group_id, g_name.strip(), selected_course_label)
-                    mail_sent = False
+                    
+                    mail_sent = send_group_confirmation_email(g_email.strip(), new_group_id, g_name.strip(), selected_course_label)
+                    
                     
                     if mail_sent:
                         st.success(f"🎉 Success! Group registered. ID: **{new_group_id}**. Confirmation sent to {g_email}.")
