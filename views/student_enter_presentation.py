@@ -34,15 +34,41 @@ if st.button("Fetch My Group & Course Details", width="stretch"):
             cursor.execute(sql, (int(input_group_id),))
             group_record = cursor.fetchone()
         conn.close()
+
+        with conn.cursor() as cursor:
+            # FIXED: Added c.courseTerm and c.courseDate parameters to the SELECT string
+            sql = """
+                SELECT g.groupID, g.groupName, g.courseID, c.courseCode, c.courseSection, c.courseTerm, c.courseDate 
+                FROM presentationgroup g
+                JOIN course c ON g.courseID = c.courseID
+                WHERE g.groupID = %s
+            """
+            cursor.execute(sql, (int(input_group_id),))
+            group_record = cursor.fetchone()
+        conn.close()
         
         if not group_record:
             st.error(f"❌ Verification Failed: No registered group found matching ID '{input_group_id}'.")
             st.session_state["active_student_group_id"] = None
         else:
+            # Convert numeric course codes into distinct semester labels
+            TERM_LABELS = {"1": "Fall", "2": "Winter", "3": "Summer"}
+            raw_term = str(group_record["courseTerm"])
+            term_text = TERM_LABELS.get(raw_term, f"Term {raw_term}")
+            
+            # Safely grab the 4-digit academic year string
+            year_text = "N/A"
+            if group_record["courseDate"]:
+                if isinstance(group_record["courseDate"], (datetime.date, datetime.datetime)):
+                    year_text = str(group_record["courseDate"].year)
+                else:
+                    year_text = str(group_record["courseDate"]).split("-")[0]
+
+            # Cache the highly descriptive unique identifier label into session state
             st.session_state["active_student_group_id"] = group_record["groupID"]
             st.session_state["active_student_group_name"] = group_record["groupName"]
             st.session_state["active_student_course_id"] = group_record["courseID"]
-            st.session_state["active_student_course_label"] = f"{group_record['courseCode']} (Section {group_record['courseSection']})"
+            st.session_state["active_student_course_label"] = f"{group_record['courseCode']} - Section {group_record['courseSection']} ({term_text} {year_text})"
             st.rerun()
     except Exception as e:
         st.error(f"Server lookup connection failure: {e}")
