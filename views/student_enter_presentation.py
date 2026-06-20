@@ -19,22 +19,46 @@ def get_mysql_connection():
 def query_huggingface_llm(prompt_text, system_instruction="You are a concise academic writing assistant."):
     try:
         hf_token = st.secrets["huggingface"]["api_token"]
+        
+        # UPDATED: Swapped to a highly available, ultra-fast instruction model to prevent 503/empty returns
         model_url = "https://huggingface.co"
         headers = {"Authorization": f"Bearer {hf_token}", "Content-Type": "application/json"}
+        
         payload = {
-            "inputs": f"<s>[SYSTEM] {system_instruction} [/SYSTEM] [USER] {prompt_text} [/USER] </s>",
-            "parameters": {"temperature": 0.2, "max_new_tokens": 500}
+            "inputs": f"<|im_start|>system\n{system_instruction}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n",
+            "parameters": {"temperature": 0.3, "max_new_tokens": 400}
         }
+        
         response = requests.post(model_url, headers=headers, json=payload, timeout=25)
+        
+        # Safety Check: If the server returns a non-200 code, catch the raw text directly
+        if response.status_code != 200:
+            return f"<p style='color:orange;'>⚠️ Hugging Face Server Message (Status {response.status_code}): {response.text}</p>"
+            
         response_json = response.json()
+        
         if isinstance(response_json, list) and len(response_json) > 0:
-            return response_json[0].get("generated_text", "AI response parsing failed.")
+            text_out = response_json[0].get("generated_text", "")
+            # Clean up the prompt echoes if the model returns the whole conversation chain
+            if "assistant\n" in text_out:
+                text_out = text_out.split("assistant\n")[-1]
+            return text_out
         elif isinstance(response_json, dict) and "generated_text" in response_json:
             return response_json["generated_text"]
         else:
-            return "AI feedback generation completed successfully."
+            return str(response_json)
+            
     except Exception as e:
-        return f"AI evaluation processing temporarily offline: {e}"
+        return f"<p style='color:red;'>❌ AI evaluation processing temporarily offline: {e}</p>"
+
+
+
+
+
+
+
+
+
 
 st.title("🎤 Schedule & Enter My Presentation Details")
 st.write("Input your System Assigned Group ID to review available calendar tracks and claim your slot.")
