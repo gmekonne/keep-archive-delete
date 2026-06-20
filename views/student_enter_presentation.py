@@ -31,7 +31,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a concise aca
         response = requests.post(model_url, headers=headers, json=payload, timeout=25)
         response_json = response.json()
         if isinstance(response_json, list) and len(response_json) > 0:
-            return response_json.get("generated_text", "AI response parsing failed.")
+            return response_json[0].get("generated_text", "AI response parsing failed.")
         elif isinstance(response_json, dict) and "generated_text" in response_json:
             return response_json["generated_text"]
         else:
@@ -89,17 +89,12 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
     with st.container(border=True):
         st.success(f"🟢 Verified: Team **'{g_name}'** logged into course track: `{c_label}`")
         
+        # Helper Lookup Databases Modules
         def fetch_open_dates(course_id):
             try:
                 conn = get_cached_mysql_connection()
                 with conn.cursor() as cursor:
-                    # FIXED SQL EXPR: Uses your tinyint logic (dateTaken = 0 means available)
-                    sql = """
-                        SELECT pres_dateID, presDate 
-                        FROM presentationdate 
-                        WHERE courseID = %s AND dateTaken = 0
-                        ORDER BY presDate ASC
-                    """
+                    sql = "SELECT pres_dateID, presDate FROM presentationdate WHERE courseID = %s AND dateTaken = 0 ORDER BY presDate ASC"
                     cursor.execute(sql, (int(course_id),))
                     slots = cursor.fetchall()
                 return slots
@@ -117,8 +112,22 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
         open_slots_list = fetch_open_dates(c_id)
         pres_types_list = fetch_presentation_types()
         
+        # --- FIXED BLOCK POSITION: RENDER DROPDOWN CONSOLE FIRST BEFORE DATE SAFETY CHECKS ---
+        st.markdown("### 📊 Presentation Specifications")
+        selected_type = st.selectbox("Select Presentation Type *", options=pres_types_list, key="pres_type_selector_widget")
+        
+        if st.button("💡 Describe Presentation Type", width="stretch"):
+            with st.spinner(f"AI compiling parameters for type '{selected_type}'..."):
+                describe_prompt = f"You are helping students quickly understand a selected presentation type.\nIn 80–120 words, provide:\n- A concise definition of the presentation type \"{selected_type}\".\n- 3–5 bullet examples of situations where it is well-suited.\n\nGuidelines:\n- Be neutral, academic, and clear.\n- Use short sentences.\n- Avoid fluff.\n- Return simple HTML with <p> and <ul><li> bullets (no external links, no scripts)."
+                type_description_html = query_huggingface_llm(describe_prompt)
+                st.info(f"📖 **About Type: {selected_type}**")
+                st.markdown(type_description_html, unsafe_allow_html=True)
+
+        st.markdown("---")
+        st.markdown("### 📅 Choose a Presentation Slot")
+        
         if not open_slots_list:
-            st.warning("⚠️ Scheduling Restricted: There are currently no open slots left for this course track.")
+            st.warning("⚠️ Scheduling Restricted: There are currently no available open dates remaining for this semester track.")
         else:
             slot_options = {f"{s['presDate'].strftime('%A, %B %d, %Y')} - (ID: {s['pres_dateID']})": s['pres_dateID'] for s in open_slots_list}
             selected_slot_label = st.selectbox("Choose an Available Calendar Presentation Slot *", options=list(slot_options.keys()))
@@ -149,16 +158,6 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                             st.error(f"Failed to compile syllabus criteria metrics: {err}")
             
             st.markdown("---")
-            selected_type = st.selectbox("Select Presentation Type *", options=pres_types_list)
-            
-            if st.button("💡 Describe Presentation Type", width="stretch"):
-                with st.spinner(f"AI compiling parameters for type '{selected_type}'..."):
-                    describe_prompt = f"You are helping students quickly understand a selected presentation type.\nIn 80–120 words, provide:\n- A concise definition of the presentation type \"{selected_type}\".\n- 3–5 bullet examples of situations where it is well-suited.\n\nGuidelines:\n- Be neutral, academic, and clear.\n- Use short sentences.\n- Avoid fluff.\n- Return simple HTML with <p> and <ul><li> bullets (no external links, no scripts)."
-                    type_description_html = query_huggingface_llm(describe_prompt)
-                    st.info(f"📖 **About Type: {selected_type}**")
-                    st.markdown(type_description_html, unsafe_allow_html=True)
-
-            st.markdown("---")
             if st.button("🔒 Lock in Presentation Slot & Confirm Selection", width="stretch"):
                 if not topic_title:
                     st.error("You must fill out your Presentation Topic Title to secure your reservation.")
@@ -166,15 +165,11 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                     try:
                         conn = get_mysql_connection() if "mysql" in st.secrets else get_cached_mysql_connection()
                         with conn.cursor() as cursor:
-                            # FIXED: Overwrites groupID and updates dateTaken flag to 1 (taken)
-                            sql_claim = """
-                                UPDATE presentationdate 
-                                SET groupID = %s, dateTaken = 1
-                                WHERE pres_dateID = %s
-                            """
+                            sql_claim = "UPDATE presentationdate SET groupID = %s, dateTaken = 1 WHERE pres_dateID = %s"
                             cursor.execute(sql_claim, (int(g_id), int(target_date_id)))
                         st.session_state["active_student_group_id"] = None
                         st.success("🎉 Presentation confirmed! Your slots are now permanently locked in the database matrix.")
                         st.balloons()
                     except Exception as tx_err:
                         st.error(f"Failed to submit calendar reservation: {tx_err}")
+        st.markdown("---")
