@@ -19,6 +19,28 @@ def get_cached_mysql_connection():
         autocommit=True
     )
 
+# OPTIMIZED CACHING ENGINE: Fetches dynamic type options once and stores in memory
+@st.cache_data(ttl=600)
+def fetch_cached_presentation_types():
+    """Queries the presentationType table safely without flooding the database connections."""
+    try:
+        conn = pymysql.connect(
+            host=st.secrets["mysql"]["host"],
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"],
+            port=st.secrets["mysql"].get("port", 3306),
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        with conn.cursor() as cursor:
+            # FIXED: Targets your exact field 'ptypeTitle' from table 'presentationType'
+            cursor.execute("SELECT ptypeTitle FROM presentationType ORDER BY ptypeTitle ASC")
+            types = cursor.fetchall()
+        conn.close()
+        return [t["ptypeTitle"] for t in types] if types else ["Standard Presentation"]
+    except Exception:
+        return ["Standard Presentation"]
+
 def query_huggingface_llm(prompt_text, system_instruction="You are a concise academic writing assistant."):
     try:
         hf_token = st.secrets["huggingface"]["api_token"]
@@ -31,7 +53,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a concise aca
         response = requests.post(model_url, headers=headers, json=payload, timeout=25)
         response_json = response.json()
         if isinstance(response_json, list) and len(response_json) > 0:
-            return response_json.get("generated_text", "AI response parsing failed.")
+            return response_json[0].get("generated_text", "AI response parsing failed.")
         elif isinstance(response_json, dict) and "generated_text" in response_json:
             return response_json["generated_text"]
         else:
@@ -71,7 +93,7 @@ if st.button("Fetch My Group & Course Details", width="stretch"):
                         if isinstance(course_record["courseDate"], (datetime.date, datetime.datetime)):
                             year_text = str(course_record["courseDate"].year)
                         else:
-                            year_text = str(course_record["courseDate"]).split("-")
+                            year_text = str(course_record["courseDate"]).split("-")[0]
 
                     st.session_state["active_student_group_id"] = group_record["groupID"]
                     st.session_state["active_student_group_name"] = group_record["groupName"]
@@ -101,15 +123,8 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
 
         open_slots_list = fetch_open_dates(c_id)
         
-        # FIXED: Hardcoded static list replaces the slow presentationType table lookup to prevent firewall connection drops
-        pres_types_list = [
-            "Individual Presentation", 
-            "Group Presentation", 
-            "Case Study Analysis", 
-            "Final Project Defense",
-            "Syllabus Term Pitch",
-            "Research Thesis Outline"
-        ]
+        # FIXED: Loads the array strings dynamically from your specific ptypeTitle table fields over connection memory cache
+        pres_types_list = fetch_cached_presentation_types()
         
         st.markdown("### 📊 Presentation Specifications")
         selected_type = st.selectbox("Select Presentation Type *", options=pres_types_list, key="pres_type_selector_widget")
@@ -161,7 +176,7 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                     st.error("You must fill out your Presentation Topic Title to secure your reservation.")
                 else:
                     try:
-                        conn = get_mysql_connection() if "mysql" in st.secrets else get_cached_mysql_connection()
+                        conn = get_cached_mysql_connection()
                         with conn.cursor() as cursor:
                             sql_claim = "UPDATE presentationdate SET groupID = %s, dateTaken = 1 WHERE pres_dateID = %s"
                             cursor.execute(sql_claim, (int(g_id), int(target_date_id)))
