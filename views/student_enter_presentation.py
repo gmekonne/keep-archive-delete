@@ -31,7 +31,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a concise aca
         response = requests.post(model_url, headers=headers, json=payload, timeout=25)
         response_json = response.json()
         if isinstance(response_json, list) and len(response_json) > 0:
-            return response_json[0].get("generated_text", "AI response parsing failed.")
+            return response_json.get("generated_text", "AI response parsing failed.")
         elif isinstance(response_json, dict) and "generated_text" in response_json:
             return response_json["generated_text"]
         else:
@@ -49,7 +49,6 @@ if st.button("Fetch My Group & Course Details", width="stretch"):
     try:
         conn = get_cached_mysql_connection()
         with conn.cursor() as cursor:
-            # OPTIMIZED QUERY 1: Fast flat lookup on presentationgroup table
             cursor.execute("SELECT groupID, groupName, courseID FROM presentationgroup WHERE groupID = %s", (int(input_group_id),))
             group_record = cursor.fetchone()
             
@@ -57,7 +56,6 @@ if st.button("Fetch My Group & Course Details", width="stretch"):
                 st.error(f"❌ Verification Failed: No registered group found matching ID '{input_group_id}'.")
                 st.session_state["active_student_group_id"] = None
             else:
-                # OPTIMIZED QUERY 2: Fast flat lookup on parent course table
                 cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
                 course_record = cursor.fetchone()
                 
@@ -73,7 +71,7 @@ if st.button("Fetch My Group & Course Details", width="stretch"):
                         if isinstance(course_record["courseDate"], (datetime.date, datetime.datetime)):
                             year_text = str(course_record["courseDate"].year)
                         else:
-                            year_text = str(course_record["courseDate"]).split("-")[0]
+                            year_text = str(course_record["courseDate"]).split("-")
 
                     st.session_state["active_student_group_id"] = group_record["groupID"]
                     st.session_state["active_student_group_name"] = group_record["groupName"]
@@ -95,7 +93,13 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
             try:
                 conn = get_cached_mysql_connection()
                 with conn.cursor() as cursor:
-                    sql = "SELECT pres_dateID, presDate FROM presentationdate WHERE courseID = %s AND (groupID IS NULL OR groupID = 0) ORDER BY presDate ASC"
+                    # FIXED SQL EXPR: Uses your tinyint logic (dateTaken = 0 means available)
+                    sql = """
+                        SELECT pres_dateID, presDate 
+                        FROM presentationdate 
+                        WHERE courseID = %s AND dateTaken = 0
+                        ORDER BY presDate ASC
+                    """
                     cursor.execute(sql, (int(course_id),))
                     slots = cursor.fetchall()
                 return slots
@@ -105,9 +109,9 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
             try:
                 conn = get_cached_mysql_connection()
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT ptypeTitle FROM presentationType")
+                    cursor.execute("SELECT typeName FROM presentationType")
                     types = cursor.fetchall()
-                return [t["ptypeTitle"] for t in types] if types else ["Standard Presentation"]
+                return [t["typeName"] for t in types] if types else ["Standard Presentation"]
             except Exception: return ["Standard Presentation"]
 
         open_slots_list = fetch_open_dates(c_id)
@@ -131,7 +135,7 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                 else:
                     with st.spinner("AI engine checking alignment with course syllabus parameters..."):
                         try:
-                            conn = get_mysql_connection() if "mysql" in st.secrets else get_cached_mysql_connection()
+                            conn = get_cached_mysql_connection()
                             with conn.cursor() as cursor:
                                 cursor.execute("SELECT syllabus_text FROM course WHERE courseID = %s", (int(c_id),))
                                 course_data = cursor.fetchone()
@@ -160,10 +164,15 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                     st.error("You must fill out your Presentation Topic Title to secure your reservation.")
                 else:
                     try:
-                        conn = get_cached_mysql_connection()
+                        conn = get_mysql_connection() if "mysql" in st.secrets else get_cached_mysql_connection()
                         with conn.cursor() as cursor:
-                            sql_claim = "UPDATE presentationdate SET groupID = %s, dateTaken = %s WHERE pres_dateID = %s"
-                            cursor.execute(sql_claim, (int(g_id), datetime.datetime.now(), int(target_date_id)))
+                            # FIXED: Overwrites groupID and updates dateTaken flag to 1 (taken)
+                            sql_claim = """
+                                UPDATE presentationdate 
+                                SET groupID = %s, dateTaken = 1
+                                WHERE pres_dateID = %s
+                            """
+                            cursor.execute(sql_claim, (int(g_id), int(target_date_id)))
                         st.session_state["active_student_group_id"] = None
                         st.success("🎉 Presentation confirmed! Your slots are now permanently locked in the database matrix.")
                         st.balloons()
