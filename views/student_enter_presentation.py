@@ -116,7 +116,7 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                 conn = get_cached_mysql_connection()
                 with conn.cursor() as cursor:
                     # Reads dynamic values straight from your presentationType table rows
-                    cursor.execute("SELECT typeName FROM presentationType")
+                    cursor.execute("SELECT ptypeTitle FROM presentationType")
                     types = cursor.fetchall()
                 return [t["typeName"] for t in types] if types else ["Standard Presentation"]
             except Exception:
