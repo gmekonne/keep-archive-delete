@@ -140,51 +140,48 @@ with right_panel:
             chosen_date_label = st.selectbox("Select an upcoming presentation date to audit:", options=list(date_options_map.keys()))
             target_iso_date = date_options_map[chosen_date_label]
             
-            btn_cols = st.columns(1)
-            with btn_cols:
+            # FIXED structure definitions (Cleaned layout block)
+            @st.dialog("📋 Booked Presenter Details", width="large")
+            def show_booked_presentations(course_name, course_id, target_date_obj):
+                st.write(f"### 🎤 Presenters for {course_name}")
+                st.write(f"**Presentation Date:** {target_date_obj.strftime('%A, %B %d, %Y')}")
+                st.markdown("---")
                 
-                @st.dialog("📋 Booked Presenter Details", width="large")
-                def show_booked_presentations(course_name, course_id, target_date_obj):
-                    st.write(f"### 🎤 Presenters for {course_name}")
-                    st.write(f"**Presentation Date:** {target_date_obj.strftime('%A, %B %d, %Y')}")
-                    st.markdown("---")
-                    
-                    try:
-                        conn = get_mysql_connection()
-                        with conn.cursor() as cursor:
-                            sql_details = """
-                                SELECT p.pres_dateID, g.groupName, p.groupID
-                                FROM presentationdate p
-                                JOIN presentationgroup g ON p.groupID = g.groupID
-                                WHERE p.courseID = %s AND p.presDate = %s
-                                ORDER BY p.pres_dateID ASC
-                            """
-                            cursor.execute(sql_details, (int(course_id), target_date_obj.strftime('%Y-%m-%d')))
-                            slots = cursor.fetchall()
-                            
-                            if not slots:
-                                st.warning("No booking records matching this transaction timeline parameter shape.")
-                            else:
-                                for s in slots:
-                                    g_id = s["groupID"]
-                                    g_name = s["groupName"]
-                                    
-                                    cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
-                                    roster_data = cursor.fetchall()
-                                    roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
-                                    roster_string = ", ".join(roster_names)
-                                    
-                                    with st.container(border=True):
-                                        st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
-                                        st.markdown(f"👥 **Team Members:** *{roster_string}*")
-                                        st.caption("ℹ️ Presentation Title and Abstract parameters are locked to this group assignment.")
-                        conn.close()
-                    except Exception as err:
-                        st.error(f"Failed to query active presenter metrics: {err}")
+                try:
+                    conn = get_mysql_connection()
+                    with conn.cursor() as cursor:
+                        sql_details = """
+                            SELECT p.pres_dateID, g.groupName, p.groupID
+                            FROM presentationdate p
+                            JOIN presentationgroup g ON p.groupID = g.groupID
+                            WHERE p.courseID = %s AND p.presDate = %s
+                            ORDER BY p.pres_dateID ASC
+                        """
+                        cursor.execute(sql_details, (int(course_id), target_date_obj.strftime('%Y-%m-%d')))
+                        slots = cursor.fetchall()
+                        
+                        if not slots:
+                            st.warning("No booking records matching this transaction timeline parameter shape.")
+                        else:
+                            for s in slots:
+                                g_id = s["groupID"]
+                                g_name = s["groupName"]
+                                
+                                cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
+                                roster_data = cursor.fetchall()
+                                roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
+                                roster_string = ", ".join(roster_names)
+                                
+                                with st.container(border=True):
+                                    st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
+                                    st.markdown(f"👥 **Team Members:** *{roster_string}*")
+                                    st.caption("ℹ️ Presentation Title and Abstract parameters are locked to this group assignment.")
+                    conn.close()
+                except Exception as err:
+                    st.error(f"Failed to query active presenter metrics: {err}")
 
-                # FIXED: The passed argument below now perfectly matches 'target_date_obj' 
-                if st.button("👁️ View Scheduled Presenters", width="stretch"):
-                    show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
+            if st.button("👁️ View Scheduled Presenters", width="stretch"):
+                show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
 # =====================================================================
 # MAIN CONTROL OPERATIONS LAYOUT VISUALS
