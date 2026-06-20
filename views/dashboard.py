@@ -114,12 +114,10 @@ with right_panel:
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
         selected_course_id = int(matched_row.iloc[0]["Course No."]) if not matched_row.empty else 0
         
-        # --- NEW PIPELINE: QUERY ALL BOOKED PRESENTATION DATES FOR THIS SPECIFIC COURSE ---
         booked_dates_list = []
         try:
             conn = get_mysql_connection()
             with conn.cursor() as cursor:
-                # Select unique dates that have active student group assignments (dateTaken = 1)
                 sql_dates = """
                     SELECT DISTINCT presDate 
                     FROM presentationdate 
@@ -133,22 +131,18 @@ with right_panel:
         except Exception as e:
             st.error(f"Failed to scan upcoming timelines: {e}")
 
-        # --- DYNAMIC INTERACTIVE SCHEDULE VIEW INTERFACE ---
         if not booked_dates_list:
             st.info(f"ℹ️ No upcoming presentations have been booked by students for course {selected_course} yet.")
         else:
             st.success(f"📋 Found **{len(booked_dates_list)}** upcoming scheduled presentation dates!")
             
-            # Format choices for clarity: "Wednesday, September 15, 2026"
             date_options_map = {d.strftime("%A, %B %d, %Y"): d for d in booked_dates_list}
             chosen_date_label = st.selectbox("Select an upcoming presentation date to audit:", options=list(date_options_map.keys()))
             target_iso_date = date_options_map[chosen_date_label]
             
-            # Layout action button wrapper
             btn_cols = st.columns(1)
-            with btn_cols[0]:
+            with btn_cols:
                 
-                # --- SECURE OVERLAY MODAL: EXTRACT PRESENTER NAMES & TOPICS FROM HOSTINGER ---
                 @st.dialog("📋 Booked Presenter Details", width="large")
                 def show_booked_presentations(course_name, course_id, target_date_obj):
                     st.write(f"### 🎤 Presenters for {course_name}")
@@ -158,7 +152,6 @@ with right_panel:
                     try:
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
-                            # Pull active slots, mapping group names and details
                             sql_details = """
                                 SELECT p.pres_dateID, g.groupName, p.groupID
                                 FROM presentationdate p
@@ -176,23 +169,22 @@ with right_panel:
                                     g_id = s["groupID"]
                                     g_name = s["groupName"]
                                     
-                                    # Fetch student member rosters linked to this groupID row
                                     cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
                                     roster_data = cursor.fetchall()
                                     roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
                                     roster_string = ", ".join(roster_names)
                                     
-                                    # Render clean information cards layout for each group slot on the day
                                     with st.container(border=True):
                                         st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
                                         st.markdown(f"👥 **Team Members:** *{roster_string}*")
-                                        st.caption("ℹ️ Presentation Title and Abstract parameter mappings will load here upon student schedule completion.")
+                                        st.caption("ℹ️ Presentation Title and Abstract parameters are locked to this group assignment.")
                         conn.close()
                     except Exception as err:
                         st.error(f"Failed to query active presenter metrics: {err}")
 
+                # FIXED: The passed argument below now perfectly matches 'target_date_obj' 
                 if st.button("👁️ View Scheduled Presenters", width="stretch"):
-                    show_booked_presentations(selected_course, selected_course_id, target_date_out=target_iso_date)
+                    show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
 # =====================================================================
 # MAIN CONTROL OPERATIONS LAYOUT VISUALS
