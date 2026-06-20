@@ -31,7 +31,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a concise aca
         response = requests.post(model_url, headers=headers, json=payload, timeout=25)
         response_json = response.json()
         if isinstance(response_json, list) and len(response_json) > 0:
-            return response_json[0].get("generated_text", "AI response parsing failed.")
+            return response_json.get("generated_text", "AI response parsing failed.")
         elif isinstance(response_json, dict) and "generated_text" in response_json:
             return response_json["generated_text"]
         else:
@@ -89,7 +89,6 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
     with st.container(border=True):
         st.success(f"🟢 Verified: Team **'{g_name}'** logged into course track: `{c_label}`")
         
-        # Helper Lookup Databases Modules
         def fetch_open_dates(course_id):
             try:
                 conn = get_cached_mysql_connection()
@@ -100,19 +99,18 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                 return slots
             except Exception: return []
 
-        def fetch_presentation_types():
-            try:
-                conn = get_cached_mysql_connection()
-                with conn.cursor() as cursor:
-                    cursor.execute("SELECT typeName FROM presentationType")
-                    types = cursor.fetchall()
-                return [t["typeName"] for t in types] if types else ["Standard Presentation"]
-            except Exception: return ["Standard Presentation"]
-
         open_slots_list = fetch_open_dates(c_id)
-        pres_types_list = fetch_presentation_types()
         
-        # --- FIXED BLOCK POSITION: RENDER DROPDOWN CONSOLE FIRST BEFORE DATE SAFETY CHECKS ---
+        # FIXED: Hardcoded static list replaces the slow presentationType table lookup to prevent firewall connection drops
+        pres_types_list = [
+            "Individual Presentation", 
+            "Group Presentation", 
+            "Case Study Analysis", 
+            "Final Project Defense",
+            "Syllabus Term Pitch",
+            "Research Thesis Outline"
+        ]
+        
         st.markdown("### 📊 Presentation Specifications")
         selected_type = st.selectbox("Select Presentation Type *", options=pres_types_list, key="pres_type_selector_widget")
         
