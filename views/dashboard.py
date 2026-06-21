@@ -140,7 +140,7 @@ with right_panel:
             chosen_date_label = st.selectbox("Select an upcoming presentation date to audit:", options=list(date_options_map.keys()))
             target_iso_date = date_options_map[chosen_date_label]
             
-            # FIXED structure definitions (Cleaned layout block)
+            # --- OVERLAY MODAL: HANDLES MULTIPLE GROUPS PRESENTING ON THE SAME DAY ---
             @st.dialog("📋 Booked Presenter Details", width="large")
             def show_booked_presentations(course_name, course_id, target_date_obj):
                 st.write(f"### 🎤 Presenters for {course_name}")
@@ -150,7 +150,7 @@ with right_panel:
                 try:
                     conn = get_mysql_connection()
                     with conn.cursor() as cursor:
-                        # JOIN presentationdate, presentationgroup, and presentation tables matching your schema fields
+                        # Fetch all matching rows for the day. Multiple slots can return smoothly here.
                         sql_details = """
                             SELECT p.pres_dateID, g.groupName, p.groupID, pr.presTitle, pr.presDescription
                             FROM presentationdate p
@@ -171,12 +171,13 @@ with right_panel:
                                 title_text = s["presTitle"] or "No Topic Registered"
                                 desc_text = s["presDescription"] or "No summary description text logged."
                                 
+                                # Query the student members table for this specific group row
                                 cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
                                 roster_data = cursor.fetchall()
                                 roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
                                 roster_string = ", ".join(roster_names)
                                 
-                                # Render the clean project summaries card row metrics grid cleanly
+                                # Render individual container cards for each presenting group
                                 with st.container(border=True):
                                     st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
                                     st.markdown(f"🎤 **Presentation Title:** **{title_text}**")
@@ -186,7 +187,9 @@ with right_panel:
                 except Exception as err:
                     st.error(f"Failed to query active presenter metrics: {err}")
 
-            
+            # FIXED: Button sits clearly at root line indent to guarantee persistent presentation focus
+            if st.button("👁️ View Scheduled Presenters", use_container_width=True):
+                show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
 # =====================================================================
 # MAIN CONTROL OPERATIONS LAYOUT VISUALS
@@ -200,20 +203,20 @@ sec2_expander = st.expander("⭐ 2. Presentations and Ratings", expanded=True)
 with sec1_expander:
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("➕ Add Course", width="stretch"):
+        if st.button("➕ Add Course", use_container_width=True):
             run_add_course_modal()
-        if st.button("❌ View / Delete Course", width="stretch"):
+        if st.button("❌ View / Delete Course", use_container_width=True):
             run_manage_catalog_modal()
     with col2:
-        if st.button("📈 View Contributions", width="stretch"): st.info("Contribution metrics loaded.")
-        if st.button("🔄 Import Students from Brightspace", width="stretch"): st.info("Brightspace triggered.")
+        if st.button("📈 View Contributions", use_container_width=True): st.info("Contribution metrics loaded.")
+        if st.button("🔄 Import Students from Brightspace", use_container_width=True): st.info("Brightspace triggered.")
 
 with sec2_expander:
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("👥 Load Presentations and Groups", width="stretch"): st.info("Group data synchronized.")
-        if st.button("📝 Load Peer Ratings", width="stretch"): st.info("Peer evaluations imported.")
-        if st.button("🏅 Grade Presentations", width="stretch"): st.info("Grading rubric active.")
+        if st.button("👥 Load Presentations and Groups", use_container_width=True): st.info("Group data synchronized.")
+        if st.button("📝 Load Peer Ratings", use_container_width=True): st.info("Peer evaluations imported.")
+        if st.button("🏅 Grade Presentations", use_container_width=True): st.info("Grading rubric active.")
     with col4:
-        if st.button("📊 View Grades", width="stretch"): st.info("Gradebook calculations displayed.")
-        if st.button("📥 Download Brightspace CSV", width="stretch"): st.info("Generating Brightspace compatible CSV file...")
+        if st.button("📊 View Grades", use_container_width=True): st.info("Gradebook calculations displayed.")
+        if st.button("📥 Download Brightspace CSV", use_container_width=True): st.info("Generating Brightspace compatible CSV file...")
