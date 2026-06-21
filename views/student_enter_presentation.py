@@ -30,7 +30,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a concise aca
             return f"<p style='color:orange;'>⚠️ AI server notice: {response.text}</p>"
         response_json = response.json()
         if isinstance(response_json, list) and len(response_json) > 0:
-            text_out = response_json[0].get("generated_text", "")
+            text_out = response_json.get("generated_text", "")
             if "assistant\n" in text_out:
                 text_out = text_out.split("assistant\n")[-1]
             return text_out
@@ -57,7 +57,6 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
                 st.error(f"❌ Verification Failed: No registered group found matching ID '{input_group_id}'.")
                 st.session_state["active_student_group_id"] = None
             else:
-                # Fetch full data metrics including courseSection and parent userID
                 cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate, userID FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
                 course_record = cursor.fetchone()
                 
@@ -90,34 +89,43 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
     with st.container(border=True):
         st.success(f"🟢 Verified: Team **'{g_name}'** logged into course track: `{c_label}`")
         
-        def fetch_open_dates(course_id):
-            try:
-                conn = get_mysql_connection()
-                with conn.cursor() as cursor:
-                    sql = "SELECT pres_dateID, presDate FROM presentationdate WHERE courseID = %s AND dateTaken = 0 ORDER BY presDate ASC"
-                    cursor.execute(sql, (int(course_id),))
-                    slots = cursor.fetchall()
-                return slots
-            except Exception: return []
-
-        open_slots_list = fetch_open_dates(c_id)
-        pres_types_list = ["Standard Pitch", "Case Defense", "Term Synthesis", "Thesis Review"]
+        open_slots_list = []
+        pres_types_map = {}
         
+        try:
+            conn = get_mysql_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT pres_dateID, presDate FROM presentationdate WHERE courseID = %s AND dateTaken = 0 ORDER BY presDate ASC", (int(c_id),))
+                open_slots_list = cursor.fetchall()
+                
+                # OPTIMIZATION: Query both ptypeID and ptypeTitle to map key constraints correctly
+                cursor.execute("SELECT ptypeID, ptypeTitle FROM presentationType ORDER BY ptypeTitle ASC")
+                types_data = cursor.fetchall()
+                if types_data:
+                    pres_types_map = {t["ptypeTitle"]: t["ptypeID"] for t in types_data}
+                else:
+                    pres_types_map = {"Standard Presentation": 1}
+            conn.close()
+        except Exception as data_err:
+            st.warning(f"Metadata synchronizer warning: {data_err}")
+            pres_types_map = {"Standard Presentation": 1}
+
         st.markdown("### 📊 Presentation Specifications")
-        selected_type = st.selectbox("Select Presentation Type *", options=pres_types_list, key="pres_type_selector_widget")
+        selected_type_label = st.selectbox("Select Presentation Type *", options=list(pres_types_map.keys()), key="pres_type_selector_widget")
+        target_ptype_id = pres_types_map[selected_type_label]
         
         if st.button("💡 Describe Presentation Type", use_container_width=True):
-            with st.spinner(f"AI compiling parameters for type '{selected_type}'..."):
-                describe_prompt = f"Provide a brief academic overview definition of the presentation type \"{selected_type}\" with 3 context bullet examples formatted cleanly as simple HTML <p> and <ul><li> tags."
+            with st.spinner(f"AI compiling parameters for type '{selected_type_label}'..."):
+                describe_prompt = f"Provide a short definition of presentation type \"{selected_type_label}\" with 3 context examples. Format cleanly as simple HTML <p> and <ul><li> tags."
                 type_description_html = query_huggingface_llm(describe_prompt)
-                st.info(f"📖 **About Type: {selected_type}**")
+                st.info(f"📖 **About Type: {selected_type_label}**")
                 st.markdown(type_description_html, unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("### 📅 Choose a Presentation Slot")
         
         if not open_slots_list:
-            st.warning("⚠️ Scheduling Restricted: There are currently no open date slots remaining for this course track.")
+            st.warning("⚠️ Scheduling Restricted: There are currently no open slots remaining for this track.")
         else:
             slot_options = {f"{s['presDate'].strftime('%A, %B %d, %Y')} - (ID: {s['pres_dateID']})": s for s in open_slots_list}
             selected_slot_label = st.selectbox("Choose an Available Calendar Presentation Slot *", options=list(slot_options.keys()))
@@ -136,13 +144,13 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                 else:
                     with st.spinner("AI engine checking alignment with course syllabus parameters..."):
                         try:
-                            conn = get_mysql_connection()
+                            conn = get_cached_mysql_connection()
                             with conn.cursor() as cursor:
                                 cursor.execute("SELECT syllabus_text FROM course WHERE courseID = %s", (int(c_id),))
                                 course_data = cursor.fetchone()
                             syllabus_context = course_data["syllabus_text"] if course_data else "None provided."
                             
-                            fit_prompt = f"Review if this proposed presentation topic fits well within the following course syllabus.\nSyllabus:\n{syllabus_context}\n\nProposed Title: {topic_title}\nAbstract: {topic_abstract}\n\nFormat feedback completely as simple HTML using <p> and <ul><li> tags."
+                            fit_prompt = f"Review if this proposed presentation topic fits well within the course syllabus.\nSyllabus:\n{syllabus_context}\n\nProposed Title: {topic_title}\nAbstract: {topic_abstract}\n\nFormat feedback completely as simple HTML using <p> and <ul><li> tags."
                             feedback_html = query_huggingface_llm(fit_prompt, "You are a constructive academic curriculum advisor.")
                             st.info("📊 **AI Syllabus Alignment Feedback**")
                             st.markdown(feedback_html, unsafe_allow_html=True)
@@ -155,16 +163,14 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                     st.error("You must fill out your Presentation Topic Title to secure your reservation.")
                 else:
                     try:
-                        # Generate unique hexadecimal string tracking parameter
                         rand_hex = secrets.token_hex(8)
-                        
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
                             # TRANSACTION 1: Update schedule slot table
                             sql_claim = "UPDATE presentationdate SET groupID = %s, dateTaken = 1 WHERE pres_dateID = %s"
                             cursor.execute(sql_claim, (int(g_id), int(target_date_id)))
                             
-                            # TRANSACTION 2: Insert into presentation table using your exact fields
+                            # TRANSACTION 2: Insert into presentation table using true dynamic mapping
                             sql_insert_pres = """
                                 INSERT INTO presentation 
                                 (random_string, presTitle, presDescription, pres_date, status, groupID, userID, courseID, coursesection, ptypeID) 
@@ -172,7 +178,7 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                             """
                             cursor.execute(sql_insert_pres, (
                                 rand_hex, topic_title.strip(), topic_abstract.strip(), target_iso_date_str, 
-                                "scheduled", int(g_id), int(u_id), int(c_id), c_sec, 1
+                                "scheduled", int(g_id), int(u_id), int(c_id), c_sec, int(target_ptype_id)
                             ))
                             
                         st.session_state["active_student_group_id"] = None
