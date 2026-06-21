@@ -141,7 +141,7 @@ with right_panel:
             target_iso_date = date_options_map[chosen_date_label]
             
             # FIXED structure definitions (Cleaned layout block)
-             @st.dialog("📋 Booked Presenter Details", width="large")
+            @st.dialog("📋 Booked Presenter Details", width="large")
             def show_booked_presentations(course_name, course_id, target_date_obj):
                 st.write(f"### 🎤 Presenters for {course_name}")
                 st.write(f"**Presentation Date:** {target_date_obj.strftime('%A, %B %d, %Y')}")
