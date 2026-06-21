@@ -1,15 +1,141 @@
 import streamlit as st
+import pymysql
+import datetime
+
+def get_mysql_connection():
+    """Establishes a real-time connection straight to Hostinger."""
+    return pymysql.connect(
+        host=st.secrets["mysql"]["host"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"],
+        database=st.secrets["mysql"]["database"],
+        port=st.secrets["mysql"].get("port", 3306),
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True
+    )
 
 st.title("💡 Submit Classroom Engagement Contributions")
-st.write("Share extra research concepts, helpful study videos, references, or suggestions.")
+st.write("Share extra research concepts, helpful study resources, videos, or lesson summaries.")
+st.markdown("---")
 
-with st.form("contribution_form"):
-    c_course = st.selectbox("Select Destination Course:", options=["COMP101", "DATA202"])
-    c_type = st.selectbox("Contribution Content Type:", options=["Research Link/URL", "Idea Text/Suggestion", "Video Tutorial Asset"])
-    c_title = st.text_input("Brief Title Descriptor *")
-    c_body = st.text_area("Elaborate Your Contribution Concepts or Paste Link Here *")
+# 1. User-Friendly Identity Verification Block
+input_gid = st.number_input("Enter your Group ID *", min_value=1, step=1, key="contrib_gid_lookup")
+
+if st.button("Verify My Profile & Load Submission Form", use_container_width=True):
+    try:
+        conn = get_mysql_connection()
+        with conn.cursor() as cursor:
+            # Look up group directly to find attached course parameters safely
+            cursor.execute("SELECT groupName, courseID FROM presentationgroup WHERE groupID = %s", (int(input_gid),))
+            group_record = cursor.fetchone()
+            
+            if not group_record:
+                st.error(f"❌ Verification Failed: Group ID '{input_gid}' is not currently registered in the system.")
+                st.session_state["active_contrib_group_id"] = None
+            else:
+                # Find the corresponding instructor userID linked to that course ID
+                cursor.execute("SELECT userID, courseCode, courseSection FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
+                course_record = cursor.fetchone()
+                
+                if not course_record:
+                    st.error("❌ Linkage Error: Your group points to a course record that no longer exists.")
+                else:
+                    # Cache layout markers into state memory to feed your hidden fields automatically
+                    st.session_state["active_contrib_group_id"] = int(input_gid)
+                    st.session_state["active_contrib_group_name"] = group_record["groupName"]
+                    st.session_state["active_contrib_course_id"] = int(group_record["courseID"])
+                    st.session_state["active_contrib_instructor_id"] = int(course_record["userID"])
+                    st.session_state["active_contrib_course_label"] = f"{course_record['courseCode']} (Section {course_record['courseSection']})"
+                    st.rerun()
+        conn.close()
+    except Exception as e:
+        st.error(f"Server verification pipeline lookup failure: {e}")
+# 2. Workspace Phase: Displays only after identity metrics are verified
+if "active_contrib_group_id" in st.session_state and st.session_state["active_contrib_group_id"] == input_gid:
+    g_id = st.session_state["active_contrib_group_id"]
+    g_name = st.session_state["active_contrib_group_name"]
+    c_id = st.session_state["active_contrib_course_id"]
+    u_id = st.session_state["active_contrib_instructor_id"]
+    c_label = st.session_state["active_contrib_course_label"]
     
-    send_contrib = st.form_submit_button("Submit Contribution Entry", width="stretch")
+    with st.container(border=True):
+        st.success(f"🟢 Authenticated: Team **'{g_name}'** linked to course track: `{c_label}`")
+        
+        # Pull types dynamically straight out of your database rows
+        dropdown_type_options = []
+        try:
+            conn = get_mysql_connection()
+            with conn.cursor() as cursor:
+                # Query your specific contributionType table using your field parameters
+                cursor.execute("SELECT contribType FROM contributionType ORDER BY contribTypeID ASC")
+                types_data = cursor.fetchall()
+                dropdown_type_options = [t["contribType"] for t in types_data] if types_data else ["Other"]
+            conn.close()
+        except Exception:
+            dropdown_type_options = ["Idea/Insight", "Question", "Resource Link", "Video", "Other"]
 
-if send_contrib:
-    st.success("Thank you! Your contribution record has been saved for instructor review.")
+        # Form Interface Element Render Rows
+        with st.form("participation_submission_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                selected_type = st.selectbox("Participation Type *", options=dropdown_type_options)
+            with col2:
+                # Date field defaults to today's date natively matching your HTML optional datepicker setup
+                chosen_date = st.date_input("Date (Optional)", datetime.date.today())
+                
+            contrib_title = st.text_input("Title *", placeholder="Short, clear title", max_chars=180)
+            contrib_desc = st.text_area(
+                "Description / Message *", 
+                placeholder="2–6 sentences: what it is, why it matters, and how it relates to the course.",
+                height=120
+            )
+            contrib_link = st.text_input("Link (Optional)", placeholder="https://...")
+            contrib_tags = st.text_input("Tags / Week / Topic (Optional)", placeholder="e.g., Week 5, AI Ethics, Cloud Security")
+            
+            save_submit = st.form_submit_button("💾 Save Contribution", width="stretch")
+            
+        if save_submit:
+            # Starred Field Validation Safeguards
+            if not contrib_title or not contrib_desc:
+                st.error("All starred fields are required to process your participation entry.")
+            elif selected_type in ["Resource Link", "Video"] and not contrib_link:
+                st.error(f"⚠️ Validation Notice: A valid URL Link is strictly required when submitting a '{selected_type}' contribution type.")
+            else:
+                try:
+                    conn = get_mysql_connection()
+                    current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    formatted_date_str = chosen_date.strftime('%Y-%m-%d')
+                    
+                    with conn.cursor() as cursor:
+                        # SQL statement filling out 100% of your listed contribution table fields explicitly
+                        sql_insert = """
+                            INSERT INTO contribution 
+                            (courseID, groupID, studentID, userID, contributionType, title, description, grade, link, tags, contributionDate, created_at, ai_feedback, ai_score, ai_checked, visibleToClass) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """
+                        cursor.execute(sql_insert, (
+                            int(c_id),          # courseID
+                            int(g_id),          # groupID
+                            0,                  # studentID (Auto-mapped to zero placeholder since student table relies on groupID matching)
+                            int(u_id),          # userID (instructor reference)
+                            selected_type,      # contributionType text selector
+                            contrib_title.strip(), 
+                            contrib_desc.strip(),
+                            None,               # grade (Null value tracking slot awaiting instructor review)
+                            contrib_link.strip() if contrib_link else "None", 
+                            contrib_tags.strip() if contrib_tags else "General", 
+                            formatted_date_str, # contributionDate string
+                            current_ts,         # created_at system execution log timestamp
+                            None,               # ai_feedback placeholder
+                            0,                  # ai_score default tracking baseline metrics
+                            0,                  # ai_checked boolean bit flag tracker set to false
+                            1                   # visibleToClass set to true as a standard platform view baseline
+                        ))
+                        
+                    conn.commit()
+                    conn.close()
+                    
+                    st.success(f"🎉 Success! Your participation record for '{contrib_title}' has been permanently saved to Hostinger.")
+                    st.balloons()
+                except Exception as tx_err:
+                    st.error(f"Failed to commit contribution parameters to database server: {tx_err}")
