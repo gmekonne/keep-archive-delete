@@ -141,7 +141,7 @@ with right_panel:
             target_iso_date = date_options_map[chosen_date_label]
             
             # FIXED structure definitions (Cleaned layout block)
-            @st.dialog("📋 Booked Presenter Details", width="large")
+             @st.dialog("📋 Booked Presenter Details", width="large")
             def show_booked_presentations(course_name, course_id, target_date_obj):
                 st.write(f"### 🎤 Presenters for {course_name}")
                 st.write(f"**Presentation Date:** {target_date_obj.strftime('%A, %B %d, %Y')}")
@@ -150,10 +150,12 @@ with right_panel:
                 try:
                     conn = get_mysql_connection()
                     with conn.cursor() as cursor:
+                        # JOIN presentationdate, presentationgroup, and presentation tables matching your schema fields
                         sql_details = """
-                            SELECT p.pres_dateID, g.groupName, p.groupID
+                            SELECT p.pres_dateID, g.groupName, p.groupID, pr.presTitle, pr.presDescription
                             FROM presentationdate p
                             JOIN presentationgroup g ON p.groupID = g.groupID
+                            JOIN presentation pr ON p.groupID = pr.groupID AND p.presDate = pr.pres_date
                             WHERE p.courseID = %s AND p.presDate = %s
                             ORDER BY p.pres_dateID ASC
                         """
@@ -161,27 +163,30 @@ with right_panel:
                         slots = cursor.fetchall()
                         
                         if not slots:
-                            st.warning("No booking records matching this transaction timeline parameter shape.")
+                            st.warning("No booking records found matching this timeline context track.")
                         else:
                             for s in slots:
                                 g_id = s["groupID"]
                                 g_name = s["groupName"]
+                                title_text = s["presTitle"] or "No Topic Registered"
+                                desc_text = s["presDescription"] or "No summary description text logged."
                                 
                                 cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
                                 roster_data = cursor.fetchall()
                                 roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
                                 roster_string = ", ".join(roster_names)
                                 
+                                # Render the clean project summaries card row metrics grid cleanly
                                 with st.container(border=True):
                                     st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
-                                    st.markdown(f"👥 **Team Members:** *{roster_string}*")
-                                    st.caption("ℹ️ Presentation Title and Abstract parameters are locked to this group assignment.")
+                                    st.markdown(f"🎤 **Presentation Title:** **{title_text}**")
+                                    st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
+                                    st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                     conn.close()
                 except Exception as err:
                     st.error(f"Failed to query active presenter metrics: {err}")
 
-            if st.button("👁️ View Scheduled Presenters", width="stretch"):
-                show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
+            
 
 # =====================================================================
 # MAIN CONTROL OPERATIONS LAYOUT VISUALS
