@@ -75,10 +75,10 @@ if "active_contrib_group_id" in st.session_state and st.session_state["active_co
             dropdown_type_options = ["Idea/Insight", "Question", "Resource Link", "Video", "Other"]
 
         # Form Interface Element Render Rows
-        with st.form("participation_submission_form", clear_on_submit=True):
+        with st.form("_submission_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
-                selected_type = st.selectbox("Participation Type *", options=dropdown_type_options)
+                selected_type = st.selectbox(" Type *", options=dropdown_type_options)
             with col2:
                 # Date field defaults to today's date natively matching your HTML optional datepicker setup
                 chosen_date = st.date_input("Date (Optional)", datetime.date.today())
@@ -135,7 +135,7 @@ if "active_contrib_group_id" in st.session_state and st.session_state["active_co
                     conn.commit()
                     conn.close()
                     
-                    st.success(f"🎉 Success! Your participation record for '{contrib_title}' has been permanently saved to Hostinger.")
+                    st.success(f"🎉 Success! Your contribution record for '{contrib_title}' has been permanently saved to Hostinger.")
                     st.balloons()
                 except Exception as tx_err:
                     st.error(f"Failed to commit contribution parameters to database server: {tx_err}")
