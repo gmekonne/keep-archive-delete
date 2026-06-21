@@ -59,6 +59,15 @@ if st.button("Fetch My Presentation Schedule", use_container_width=True):
                 course_data = cursor.fetchone()
                 c_code = course_data["courseCode"] if course_data else "Unknown"
 
+                # Step 4: Translate numeric status flags to readable text badges safely
+                raw_status = pres_record["status"]
+                if raw_status == 1 or str(raw_status).lower() in ["1", "scheduled", "approved"]:
+                    status_text = "🟢 SCHEDULED & APPROVED"
+                elif raw_status == 0 or str(raw_status).lower() in ["0", "pending"]:
+                    status_text = "🟡 PENDING REVIEW"
+                else:
+                    status_text = f"🔵 {str(raw_status).upper()}" # FIXED: Enforces string parsing safeguard
+
                 # 2. Render Clean, Responsive Student Information Cards Layout
                 st.balloons()
                 with st.container(border=True):
@@ -73,8 +82,7 @@ if st.button("Fetch My Presentation Schedule", use_container_width=True):
                     
                     with col2:
                         st.markdown(f"🎤 **Presentation Title:** **{pres_record['presTitle']}**")
-                        status_color = "green" if pres_record["status"] == "scheduled" else "orange"
-                        st.markdown(f"⚙️ **Status:** : {pres_record['status'].upper()}")
+                        st.markdown(f"⚙️ **Status:** {status_color}")
                     
                     st.markdown("---")
                     st.markdown(f"📝 **Topic Abstract Summary:**\n*{pres_record['presDescription']}*")
