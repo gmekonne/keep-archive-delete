@@ -14,15 +14,29 @@ def get_mysql_connection():
         autocommit=True
     )
 
+
+
 def get_visitor_public_ip():
+    """Extracts the student's authentic public IP address natively from Streamlit server connection headers."""
     try:
-        return requests.get("https://ipify.org", timeout=3).text.strip()
+        # Accesses the raw context headers sent by the visitor's browser tab session
+        ctx_headers = st.context.headers
+        
+        # Standard proxy headers used by cloud providers to pass the true client IP
+        if "X-Forwarded-For" in ctx_headers:
+            # Splits any proxy chains and grabs the true origin visitor IP address text string cleanly
+            return str(ctx_headers["X-Forwarded-For"]).split(",")[0].strip()
+        elif "X-Real-IP" in ctx_headers:
+            return str(ctx_headers["X-Real-IP"]).strip()
+        else:
+            return "127.0.0.1"
     except Exception:
         return "127.0.0.1"
 
 st.title("⭐ Rate Current Presentation")
 st.write("Secure Evaluation Portal • Authenticated via anonymous URL routing keys.")
 st.markdown("---")
+
 
 # Capture the postID parameter from the URL bar automatically
 url_params = st.query_params
