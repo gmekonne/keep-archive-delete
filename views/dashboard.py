@@ -188,9 +188,11 @@ with right_panel:
                                     
                                     # FIXED URL PARAMETER BUILDER: Formats a fully complete, true working web link destination path
                                     if rand_hash:
+                                        # Formats link to directly load the hidden form page and supply the custom postID hash
                                         correct_full_url = f"https://streamlit.app{rand_hash}"
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_snap_{s['pres_dateID']}")
                                         st.caption("Instructors can copy this link to paste into Zoom chat or project on screen for live evaluations.")
+
                                         
                     conn.close()
                 except Exception as err:
