@@ -112,8 +112,9 @@ with right_panel:
         
         # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        selected_course_id = int(matched_row.loc[matched_row.index, "Course No."]) if not matched_row.empty else 0
-        
+        # selected_course_id = int(matched_row.loc[matched_row.index, "Course No."]) if not matched_row.empty else 0
+        selected_course_id = int(matched_row["Course No."].iloc[0]) if not matched_row.empty else 0
+
         booked_dates_list = []
         try:
             conn = get_mysql_connection()
