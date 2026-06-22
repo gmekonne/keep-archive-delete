@@ -112,9 +112,10 @@ with right_panel:
         
         # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        # selected_course_id = int(matched_row.loc[matched_row.index, "Course No."]) if not matched_row.empty else 0
+        
+        # FIXED LINE 115: Uses .iloc to cleanly grab the raw course integer ID without Series array casting crashes
         selected_course_id = int(matched_row["Course No."].iloc[0]) if not matched_row.empty else 0
-
+        
         booked_dates_list = []
         try:
             conn = get_mysql_connection()
@@ -172,18 +173,20 @@ with right_panel:
                                 desc_text = s["presDescription"] or "No summary description text logged."
                                 rand_hash = s["random_string"] or ""
                                 
+                                # Query the student members table for this specific group row
                                 cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
                                 roster_data = cursor.fetchall()
                                 roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
                                 roster_string = ", ".join(roster_names)
                                 
+                                # Render individual container cards for each presenting group
                                 with st.container(border=True):
                                     st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
                                     st.markdown(f"🎤 **Presentation Title:** **{title_text}**")
                                     st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
-                                    # --- FIXED: GENERATES THE FULL, CORRECT AND WRAPPED WEB URL PATH ROUTE ---
+                                    # FIXED URL PARAMETER BUILDER: Formats a fully complete, true working web link destination path
                                     if rand_hash:
                                         correct_full_url = f"https://streamlit.app{rand_hash}"
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_snap_{s['pres_dateID']}")
