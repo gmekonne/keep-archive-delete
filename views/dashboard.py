@@ -112,7 +112,7 @@ with right_panel:
         
         # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        selected_course_id = int(matched_row.iloc[0]["Course No."]) if not matched_row.empty else 0
+        selected_course_id = int(matched_row.iloc["Course No."]) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
@@ -140,7 +140,7 @@ with right_panel:
             chosen_date_label = st.selectbox("Select an upcoming presentation date to audit:", options=list(date_options_map.keys()))
             target_iso_date = date_options_map[chosen_date_label]
             
-            # --- OVERLAY MODAL: HANDLES MULTIPLE GROUPS PRESENTING ON THE SAME DAY ---
+            # --- OVERLAY MODAL: LOADS THE PRESENTATION DETAILS AND SECURE ROUTING KEYS ---
             @st.dialog("📋 Booked Presenter Details", width="large")
             def show_booked_presentations(course_name, course_id, target_date_obj):
                 st.write(f"### 🎤 Presenters for {course_name}")
@@ -150,9 +150,9 @@ with right_panel:
                 try:
                     conn = get_mysql_connection()
                     with conn.cursor() as cursor:
-                        # Fetch all matching rows for the day. Multiple slots can return smoothly here.
+                        # FIXED: Added pr.random_string to the selection query so we can build links dynamically
                         sql_details = """
-                            SELECT p.pres_dateID, g.groupName, p.groupID, pr.presTitle, pr.presDescription
+                            SELECT p.pres_dateID, g.groupName, p.groupID, pr.presTitle, pr.presDescription, pr.random_string
                             FROM presentationdate p
                             JOIN presentationgroup g ON p.groupID = g.groupID
                             JOIN presentation pr ON p.groupID = pr.groupID AND p.presDate = pr.pres_date
@@ -170,6 +170,7 @@ with right_panel:
                                 g_name = s["groupName"]
                                 title_text = s["presTitle"] or "No Topic Registered"
                                 desc_text = s["presDescription"] or "No summary description text logged."
+                                rand_hash = s["random_string"] or ""
                                 
                                 # Query the student members table for this specific group row
                                 cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
@@ -183,11 +184,17 @@ with right_panel:
                                     st.markdown(f"🎤 **Presentation Title:** **{title_text}**")
                                     st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
+                                    
+                                    # --- FIXED EXTRA: AUTOMATED SHAREABLE EVALUATION LINK SNIPPER ---
+                                    if rand_hash:
+                                        generated_url = f"https://streamlit.app{rand_hash}"
+                                        st.text_input("🔗 Shareable Peer Rating Link for this Group:", value=generated_url, disabled=True, key=f"url_snap_{s['pres_dateID']}")
+                                        st.caption("Instructors can copy this exact link to paste into Zoom chat or Brightspace during live evaluations.")
+                                        
                     conn.close()
                 except Exception as err:
                     st.error(f"Failed to query active presenter metrics: {err}")
 
-            # FIXED: Button sits clearly at root line indent to guarantee persistent presentation focus
             if st.button("👁️ View Scheduled Presenters", use_container_width=True):
                 show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
@@ -203,20 +210,20 @@ sec2_expander = st.expander("⭐ 2. Presentations and Ratings", expanded=True)
 with sec1_expander:
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("➕ Add Course", use_container_width=True):
+        if st.button("➕ Add Course", width="stretch"):
             run_add_course_modal()
-        if st.button("❌ View / Delete Course", use_container_width=True):
+        if st.button("❌ View / Delete Course", width="stretch"):
             run_manage_catalog_modal()
     with col2:
-        if st.button("📈 View Contributions", use_container_width=True): st.info("Contribution metrics loaded.")
-        if st.button("🔄 Import Students from Brightspace", use_container_width=True): st.info("Brightspace triggered.")
+        if st.button("📈 View Contributions", width="stretch"): st.info("Contribution metrics loaded.")
+        if st.button("🔄 Import Students from Brightspace", width="stretch"): st.info("Brightspace triggered.")
 
 with sec2_expander:
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("👥 Load Presentations and Groups", use_container_width=True): st.info("Group data synchronized.")
-        if st.button("📝 Load Peer Ratings", use_container_width=True): st.info("Peer evaluations imported.")
-        if st.button("🏅 Grade Presentations", use_container_width=True): st.info("Grading rubric active.")
+        if st.button("👥 Load Presentations and Groups", width="stretch"): st.info("Group data synchronized.")
+        if st.button("📝 Load Peer Ratings", width="stretch"): st.info("Peer evaluations imported.")
+        if st.button("🏅 Grade Presentations", width="stretch"): st.info("Grading rubric active.")
     with col4:
-        if st.button("📊 View Grades", use_container_width=True): st.info("Gradebook calculations displayed.")
-        if st.button("📥 Download Brightspace CSV", use_container_width=True): st.info("Generating Brightspace compatible CSV file...")
+        if st.button("📊 View Grades", width="stretch"): st.info("Gradebook calculations displayed.")
+        if st.button("📥 Download Brightspace CSV", width="stretch"): st.info("Generating Brightspace compatible CSV file...")
