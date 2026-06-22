@@ -112,7 +112,9 @@ with right_panel:
         
         # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        selected_course_id = int(matched_row.iloc["Course No."]) if not matched_row.empty else 0
+        
+        # FIXED: Enforced correct .loc row selection matrix index extraction rules to stop indexing exceptions
+        selected_course_id = int(matched_row.loc[matched_row.index[0], "Course No."]) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
@@ -150,7 +152,6 @@ with right_panel:
                 try:
                     conn = get_mysql_connection()
                     with conn.cursor() as cursor:
-                        # FIXED: Added pr.random_string to the selection query so we can build links dynamically
                         sql_details = """
                             SELECT p.pres_dateID, g.groupName, p.groupID, pr.presTitle, pr.presDescription, pr.random_string
                             FROM presentationdate p
@@ -185,7 +186,6 @@ with right_panel:
                                     st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
-                                    # --- FIXED EXTRA: AUTOMATED SHAREABLE EVALUATION LINK SNIPPER ---
                                     if rand_hash:
                                         generated_url = f"https://streamlit.app{rand_hash}"
                                         st.text_input("🔗 Shareable Peer Rating Link for this Group:", value=generated_url, disabled=True, key=f"url_snap_{s['pres_dateID']}")
@@ -195,7 +195,7 @@ with right_panel:
                 except Exception as err:
                     st.error(f"Failed to query active presenter metrics: {err}")
 
-            if st.button("👁️ View Scheduled Presenters", use_container_width=True):
+            if st.button("👁️ View Scheduled Presenters", width="stretch"):
                 show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
 # =====================================================================
