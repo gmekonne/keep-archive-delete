@@ -27,10 +27,23 @@ st.write("Secure Evaluation Portal • Authenticated via anonymous URL routing k
 st.markdown("---")
 
 # 1. Capture the randomized link string parameter (Simulates $_GET['postID'])
-url_routing_string = st.text_input("Paste Presentation Secure Key (postID) *", placeholder="e.g., yzj3o8nuxeva")
+# url_routing_string = st.text_input("Paste Presentation Secure Key (postID) *", placeholder="e.g., yzj3o8nuxeva")
+# =====================================================================
+# DYNAMIC GET CONSOLE: SNIFF KEY DIRECTLY FROM THE BROWSER URL BAR
+# =====================================================================
+# Simulates your exact PHP $_GET['postID'] logic natively in Python
+url_params = st.query_params
+
+if "postID" in url_params:
+    # Automatically extracts '49973ed8fabefc8e' right out of the incoming link path
+    url_routing_string = str(url_params["postID"]).strip()
+else:
+    # Fallback text input drawer in case a user lands on the page without an entry key
+    url_routing_string = st.text_input("Paste Presentation Secure Key (postID) *", placeholder="e.g., 49973ed8fabefc8e")
 
 if url_routing_string:
     target_key = url_routing_string.strip()
+
     
     # Initialize variables for block scope extraction
     presentation_meta = None
