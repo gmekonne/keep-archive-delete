@@ -108,13 +108,13 @@ with right_panel:
     if user_courses_df.empty:
         st.caption("Awaiting course entries to establish scheduling modules.")
     else:
-        # UPDATED IDENTIFIER KEY: Forces selectbox cache to discard old layout threads
         selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed", key="dash_course_sel_v2")
         
         # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
         
-        selected_course_id = int(matched_row["Course No."].iloc) if not matched_row.empty else 0
+        # FIXED EXPR: Appended positional coordinate brackets [0] to extract the clean integer data row parameter
+        selected_course_id = int(matched_row["Course No."].iloc[0]) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
@@ -138,12 +138,11 @@ with right_panel:
         else:
             st.success(f"📋 Found **{len(booked_dates_list)}** upcoming scheduled presentation dates!")
             
-            # UPDATED IDENTIFIER KEY: Forces date picker to release stored timeline states
             date_options_map = {d.strftime("%A, %B %d, %Y"): d for d in booked_dates_list}
             chosen_date_label = st.selectbox("Select an upcoming presentation date to audit:", options=list(date_options_map.keys()), key="dash_date_picker_v2")
             target_iso_date = date_options_map[chosen_date_label]
             
-            # --- OVERLAY MODAL: HARD RE-NAMED AT THE TOP LEVEL TO BREAK MODAL STREAMLIT CACHING ---
+            # --- OVERLAY MODAL: LOADS THE PRESENTATION DETAILS AND SECURE ROUTING KEYS ---
             @st.dialog("📋 Booked Presenter Details Matrix", width="large")
             def show_fresh_presenter_details_modal(course_name, course_id, target_date_obj):
                 st.write(f"### 🎤 Presenters for {course_name}")
@@ -185,10 +184,8 @@ with right_panel:
                                     st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
-                                    # --- THE GUARANTEED ENFORCED URL OVERWRITE STRING BLOCK ---
                                     if rand_hash:
                                         correct_full_url = f"https://streamlit.app{rand_hash}"
-                                        # UPDATED IDENTIFIER KEY: Forces text widget to build a clean string loop entry
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_v2_widget_{s['pres_dateID']}")
                                         st.caption("Instructors can copy this link to paste into Zoom chat or project on screen for live evaluations.")
                                         
@@ -196,7 +193,6 @@ with right_panel:
                 except Exception as err:
                     st.error(f"Failed to query active presenter metrics: {err}")
 
-            # UPDATED CALL REFERENCE LINK
             if st.button("👁️ View Scheduled Presenters", use_container_width=True, key="btn_view_pres_v2"):
                 show_fresh_presenter_details_modal(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
