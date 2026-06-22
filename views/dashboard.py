@@ -112,7 +112,9 @@ with right_panel:
         
         # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        selected_course_id = int(matched_row.loc[matched_row.index, "Course No."]) if not matched_row.empty else 0
+        
+        # FIXED: Enforced extraction of the first flat scalar item via values[0] to prevent Pandas Series array types casting failures
+        selected_course_id = int(matched_row["Course No."].values[0]) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
@@ -171,18 +173,19 @@ with right_panel:
                                 desc_text = s["presDescription"] or "No summary description text logged."
                                 rand_hash = s["random_string"] or ""
                                 
+                                # Query the student members table for this specific group row
                                 cursor.execute("SELECT studentName FROM student WHERE groupID = %s", (int(g_id),))
                                 roster_data = cursor.fetchall()
                                 roster_names = [r["studentName"] for r in roster_data] if roster_data else ["None Registered"]
                                 roster_string = ", ".join(roster_names)
                                 
+                                # Render individual container cards for each presenting group
                                 with st.container(border=True):
                                     st.markdown(f"#### 👥 Group: **{g_name}** (ID: {g_id})")
                                     st.markdown(f"🎤 **Presentation Title:** **{title_text}**")
                                     st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
-                                    # --- FIXED: GENERATES THE FULL, CORRECT AND WRAPPED WEB URL PATH ROUTE ---
                                     if rand_hash:
                                         correct_full_url = f"https://streamlit.app{rand_hash}"
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_snap_{s['pres_dateID']}")
@@ -192,7 +195,7 @@ with right_panel:
                 except Exception as err:
                     st.error(f"Failed to query active presenter metrics: {err}")
 
-            if st.button("👁️ View Scheduled Presenters", width="stretch"):
+            if st.button("👁️ View Scheduled Presenters", use_container_width=True):
                 show_booked_presentations(selected_course, selected_course_id, target_date_obj=target_iso_date)
 
 # =====================================================================
