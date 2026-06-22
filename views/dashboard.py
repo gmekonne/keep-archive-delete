@@ -187,7 +187,7 @@ with right_panel:
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
                                     if rand_hash:
-                                        correct_full_url = f"https://streamlit.app{rand_hash}"
+                                        correct_full_url = f"https://keep-archive-delete-hgqqsmfkqpwhbjedahdsny.streamlit.app/student_rate_presentation?postID={rand_hash}"
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_snap_{s['pres_dateID']}")
                                         st.caption("Instructors can copy this link to paste into Zoom chat or project on screen for live evaluations.")
                                         
