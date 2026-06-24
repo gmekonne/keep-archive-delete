@@ -120,8 +120,10 @@ try:
 except Exception as e:
     overall_average_label = "Error"
 
-# --- COMPACT HEADER METRIC CARD GRID PLACEMENT ---
-m_col1, m_col2, m_col3 = st.columns(3)
+# --- FIXED METRIC GRID: RESIZED COLUMN TRACKS ---
+# Shrinks column 1 down to ratio weight '1', widens column 2 out to ratio weight '2'
+m_col1, m_col2, m_col3 = st.columns([1, 2, 1.2])
+
 with m_col1: 
     st.metric(label="Your Registered Courses", value=str(len(user_courses_df)))
     
@@ -159,8 +161,7 @@ with right_panel:
         selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed", key="dash_course_sel_v2")
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
         
-        # FIXED LINE 167: Swapped the broken raw .iloc call with a structured values[0] scalar data extraction rule
-        selected_course_id = int(matched_row["Course No."].values[0]) if not matched_row.empty else 0
+        selected_course_id = int(matched_row["Course No."].values) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
