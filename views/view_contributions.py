@@ -19,10 +19,11 @@ st.subheader("📈 Instructor Participation Audit Console")
 st.write("Lookup, review, and input grades for student classroom contributions.")
 st.markdown("---")
 
-# 1. Instructor Search Panel Input
-input_gid = st.number_input("Enter Group ID to Audit *", min_value=1, step=1, key="inst_contrib_lookup_gid")
+# FIXED: Set min_value=0 and value=0 so the input box starts completely blank/neutral
+input_gid = st.number_input("Enter Group ID to Audit *", min_value=0, value=0, step=1, key="inst_contrib_lookup_gid")
 
-if input_gid:
+# FIXED GUARD CONDITION: Only fires database query tracks if the instructor types a number greater than 0
+if input_gid > 0:
     contrib_index_list = []
     group_name_str = "Unknown Team"
     
@@ -59,14 +60,12 @@ if input_gid:
         try:
             conn = get_mysql_connection()
             with conn.cursor() as cursor:
-                # Fetch full data columns for the explicitly chosen selection ID
                 sql_row = "SELECT * FROM contribution WHERE contributionID = %s"
                 cursor.execute(sql_row, (int(target_contrib_id),))
                 c_data = cursor.fetchone()
             conn.close()
             
             if c_data:
-                # Standardize timestamps beautifully
                 raw_date = c_data["contributionDate"]
                 formatted_date = raw_date.strftime("%B %d, %Y") if isinstance(raw_date, (datetime.date, datetime.datetime)) else str(raw_date)
                 
@@ -81,11 +80,9 @@ if input_gid:
                     st.markdown(f"📖 **Submission Message/Insight Content:**\n\n\"{c_data['description']}\"")
                     st.markdown("---")
                     
-                    # --- ACTIVE INLINE GRADING MODULE COMPONENT ---
                     st.markdown("##### 🏅 Instructor Grade Allocation")
                     current_grade = c_data["grade"] if c_data["grade"] is not None else 0.0
                     
-                    # Numeric score input form wrapper to trigger atomic database changes
                     with st.form(f"grading_sub_form_{target_contrib_id}", clear_on_submit=False):
                         new_score = st.number_input("Assign Grade Points (e.g., Participation Credits)", min_value=0.0, max_value=100.0, value=float(current_grade), step=0.5)
                         submit_grade_btn = st.form_submit_button("💾 Save Grade to Ledger")
@@ -94,7 +91,6 @@ if input_gid:
                         try:
                             conn = get_mysql_connection()
                             with conn.cursor() as cursor:
-                                # Execute real-time data update straight to your contribution row
                                 sql_update = "UPDATE contribution SET grade = %s WHERE contributionID = %s"
                                 cursor.execute(sql_update, (float(new_score), int(target_contrib_id)))
                             st.success(f"🎉 Grade of **{new_score}** permanently recorded for this item!")
@@ -104,3 +100,6 @@ if input_gid:
                             
         except Exception as query_err:
             st.error(f"Error compiling selection detail card: {query_err}")
+else:
+    # This renders clean guidance instructions on screen when the input box is sitting on neutral zero
+    st.info("💡 **Awaiting Input:** Please enter a student team's Group ID inside the numeric input box above to audit classroom participation logs.")
