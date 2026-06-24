@@ -18,19 +18,28 @@ def get_mysql_connection():
 def query_huggingface_llm(prompt_text, system_instruction="You are an expert university presentation evaluator."):
     """Outbound payload connector to Hugging Face's free serverless inference tier."""
     try:
-        hf_token = st.secrets["huggingface"]["api_token"]
-        # Utilizing Qwen2.5-7B-Instruct due to near 100% uptime and rapid JSON/HTML token compilation speeds
+        # Safety Check: Read token securely and ensure it strips trailing spaces
+        if "huggingface" not in st.secrets or "api_token" not in st.secrets["huggingface"]:
+            return "<p style='color:orange;'>⚠️ Configuration Error: Hugging Face api_token is missing from your Streamlit Secrets console panel.</p>"
+            
+        hf_token = str(st.secrets["huggingface"]["api_token"]).strip()
+        
+        # UPDATED GLOBAL ENDPOINT: Swapped to highly available open Llama infrastructure to bypass model blocks
         model_url = "https://huggingface.co"
         headers = {"Authorization": f"Bearer {hf_token}", "Content-Type": "application/json"}
         
         payload = {
-            "inputs": f"<|im_start|>system\n{system_instruction}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n",
+            "inputs": f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{system_instruction}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{prompt_text}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n",
             "parameters": {"temperature": 0.3, "max_new_tokens": 500}
         }
         
         response = requests.post(model_url, headers=headers, json=payload, timeout=25)
-        if response.status_code != 200:
-            return f"<p style='color:orange;'>⚠️ AI Processor Notice: Server returned status {response.status_code}. Using local evaluation synthesis defaults.</p>"
+        
+        # Explicit Error Handler: Tells you precisely if the token itself is rejected by the network firewall
+        if response.status_code == 403:
+            return f"<p style='color:orange;'>⚠️ Hugging Face Auth Block (403): Your access token was rejected. Please verify your token has 'Read' or 'Inference' access permissions inside hf.co settings.</p>"
+        elif response.status_code != 200:
+            return f"<p style='color:orange;'>⚠️ AI Processor Notice: Server returned status {response.status_code}. Details: {response.text}</p>"
             
         response_json = response.json()
         if isinstance(response_json, list) and len(response_json) > 0:
@@ -43,6 +52,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are an expert uni
         return str(response_json)
     except Exception as e:
         return f"<p style='color:red;'>❌ AI engine processing is temporarily offline: {e}</p>"
+
 
 st.title("🤖 AI-Generated Presentation Synthesis & Feedback")
 st.write("Leverage advanced language models to synthesize peer review data into structured improvement hints.")
