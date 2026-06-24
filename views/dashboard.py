@@ -32,6 +32,14 @@ def run_manage_catalog_modal():
     with open("views/view_delete_course.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/view_delete_course.py", "exec"), globals())
 
+# Add this caller right below your manage catalog dialog definitions near the top
+@st.dialog("📝 Enter/Edit System Guidelines", width="large")
+def run_edit_guide_modal():
+    with open("views/edit_guide_form.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/edit_guide_form.py", "exec"), globals())
+
+
+
 # --- SIDEBAR UTILITIES ---
 with st.sidebar:
     st.image("https://icons8.com", width=60)
@@ -212,6 +220,11 @@ with sec1_expander:
             run_add_course_modal()
         if st.button("❌ View / Delete Course", width="stretch"):
             run_manage_catalog_modal()
+        
+        # 🟢 ADD THIS NEW INTERACTIVE TRIGGER BUTTON HERE:
+        if st.button("📝 Enter / Edit Guide", use_container_width=True):
+            run_edit_guide_modal()
+    
     with col2:
         if st.button("📈 View Contributions", width="stretch"): st.info("Contribution metrics loaded.")
         if st.button("🔄 Import Students from Brightspace", width="stretch"): st.info("Brightspace triggered.")
