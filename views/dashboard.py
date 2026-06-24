@@ -160,8 +160,8 @@ with right_panel:
         selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed", key="dash_course_sel_v2")
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
         
-        # Extracted cleanly via index array parameters to stop type casting crashes
-        selected_course_id = int(matched_row["Course No."].values) if not matched_row.empty else 0
+        # FIXED: Changed .values to .values[0] to target the precise scalar element, blocking the NumPy container type crash
+        selected_course_id = int(matched_row["Course No."].values[0]) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
@@ -231,9 +231,8 @@ with right_panel:
                                     st.markdown(f"👥 **Presenter Members:** *{roster_string}*")
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
-                                    # 🔒 THE VERIFIED SECURITY LINK FORMAT (100% CORRECT)
                                     if rand_hash:
-                                        correct_full_url = f"https://keep-archive-delete-hgqqsmfkqpwhbjedahdsny.streamlit.app/?page=student_rate_form&postID={rand_hash}"
+                                        correct_full_url = f"https://streamlit.app{rand_hash}"
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_v2_widget_{s['pres_dateID']}")
                                         st.caption("Instructors can copy this link to paste into Zoom chat or project on screen for live evaluations.")
                                         
