@@ -17,35 +17,31 @@ def get_mysql_connection():
 
 def execute_local_fallback_synthesis(g_name, p_title, avg_score, total_votes, raw_comments_str):
     """Fallback Engine: Compiles a beautifully structured 3-part academic report card locally."""
-    # Split the raw comments string back into clean individual list entries
     clean_lines = [line.strip("- ").strip() for line in raw_comments_str.split("\n") if line.strip()]
     
-    # Process text reviews to find common optimization areas
     has_timing_critique = any("time" in l.lower() or "pace" in l.lower() or "fast" in l.lower() or "slow" in l.lower() for l in clean_lines)
     has_slide_critique = any("slide" in l.lower() or "visual" in l.lower() or "text" in l.lower() or "font" in l.lower() for l in clean_lines)
     has_voice_critique = any("voice" in l.lower() or "loud" in l.lower() or "hear" in l.lower() or "clear" in l.lower() for l in clean_lines)
 
-    # Compile dynamic actionable hints based on real database peer review text
     generated_hints = []
     if has_timing_critique or not clean_lines:
-        generated_hints.append("<strong>Optimize Delivery Pacing:</strong> Several peer evaluation reviews highlighted delivery speed. Practice transitions with a timer to stabilize structural pacing parameters.")
+        generated_hints.append("<strong>Optimize Delivery Pacing:</strong> Practice transitions with a timer to stabilize structural pacing parameters.")
     if has_slide_critique or not clean_lines:
-        generated_hints.append("<strong>Refine Slide Typography & Density:</strong> Balance raw text margins across presentation frames. Use concise bullet fragments instead of paragraph blocks to maximize visual clarity.")
+        generated_hints.append("<strong>Refine Slide Density:</strong> Use concise bullet fragments instead of paragraph blocks to maximize visual clarity.")
     if has_voice_critique or not clean_lines:
-        generated_hints.append("<strong>Maximize Voice Projection:</strong> Focus on maintaining a steady volume and clear articulation throughout delivery transitions to ensure remote audience engagement.")
+        generated_hints.append("<strong>Maximize Voice Projection:</strong> Focus on maintaining a steady volume and clear articulation throughout delivery transitions.")
     if len(generated_hints) < 3:
-        generated_hints.append("<strong>Strengthen Core Thesis Links:</strong> Ground introductory slides immediately in real-world case parameters to maximize audience hook engagement metrics.")
+        generated_hints.append("<strong>Strengthen Core Thesis Links:</strong> Ground introductory slides immediately in real-world case parameters.")
 
     hints_html_bullets = "".join([f"<li>{hint}</li>" for hint in generated_hints])
 
-    # Enforce your precise requested 3-part structure (Introduction, Content, Conclusion) in clean HTML
     fallback_html_report = f"""
     <div style='line-height:1.6; font-size:15px;'>
         <p><strong>1. Introduction:</strong><br>
         This evaluation synthesis report compiles performance data parameters for team <strong>'{g_name}'</strong> regarding the presentation topic <em>"{p_title}"</em>. Based on a classroom evaluation pool of <strong>{total_votes} peer evaluators</strong>, your team achieved a running performance rating baseline score of <strong>★ {avg_score} out of 5.0 stars</strong>. The general atmosphere of the submitted review matrix indicates stable classroom engagement with clear technical highlights.</p>
         
         <p><strong>2. Content & Strategic Improvement Hints:</strong><br>
-        Based on an algorithmic analysis of your classmates' qualitative critique entries, here are the top actionable adjustment hints for your next milestone presentation task:</p>
+        Based on an analysis of your classmates' qualitative critique entries, here are the top actionable adjustment hints for your next milestone presentation task:</p>
         <ul>
             {hints_html_bullets}
         </ul>
@@ -72,20 +68,22 @@ def query_huggingface_llm(prompt_text, system_instruction="You are an expert uni
         }
         
         response = requests.post(model_url, headers=headers, json=payload, timeout=8)
-        
-        # If CloudFront firewalls or network route locks drop the packet, trigger local synthesis immediately
         if response.status_code != 200:
             return "FALLBACK_TRIGGERED"
             
         response_json = response.json()
+        text_out = ""
         if isinstance(response_json, list) and len(response_json) > 0:
             text_out = response_json.get("generated_text", "")
-            if "assistant\n" in text_out:
-                text_out = text_out.split("assistant\n")[-1]
-            return text_out
         elif isinstance(response_json, dict) and "generated_text" in response_json:
-            return response_json["generated_text"]
-        return "FALLBACK_TRIGGERED"
+            text_out = response_json["generated_text"]
+            
+        if "assistant\n" in text_out:
+            text_out = text_out.split("assistant\n")[-1]
+            
+        # --- FIXED CLEANUP PARSER: Strips raw markdown block tags to prevent horizontal window scrolling ---
+        text_out = text_out.replace("```html", "").replace("```", "").strip()
+        return text_out if text_out else "FALLBACK_TRIGGERED"
     except Exception:
         return "FALLBACK_TRIGGERED"
 
@@ -101,7 +99,7 @@ if st.button("Generate My AI Feedback Analysis", use_container_width=True):
             sql_check = """
                 SELECT p.presID, p.presTitle, g.groupName 
                 FROM presentation p
-                JOIN presentationgroup g ON p.groupID = g.groupID
+                JOIN presentationgroup g ON g.groupID = p.groupID
                 WHERE p.groupID = %s 
                 ORDER BY p.presID DESC LIMIT 1
             """
@@ -149,18 +147,18 @@ if "ai_eval_ready" in st.session_state and st.session_state["ai_eval_ready"] and
     st.markdown("---")
     
     if int(total_votes) == 0:
-        st.info("⏳ Awaiting Classroom Evaluations: No evaluations have been submitted for your presentation yet. AI processing requires logged peer data to run.")
+        st.info("⏳ Awaiting Classroom Evaluations: No evaluations have been submitted for your presentation yet.")
     else:
         with st.spinner("🤖 Processing feedback logs and synthesizing suggestions..."):
             ai_prompt = f"Compile structured evaluation report card. Team: {g_name}, Topic: {p_title}, Score: {avg_score}. Comments: {peer_comments_raw}. Output clean HTML with Introduction, Content, and Conclusion."
             
-            # Fire the network call
             output_report_html = query_huggingface_llm(ai_prompt)
             
-            # --- INTELLIGENT FALLBACK DETECTOR INTERCEPTOR ---
-            # If Hugging Face's CloudFront drops the packet, we instantly run our localized engine silently
-            if output_report_html == "FALLBACK_TRIGGERED":
+            if output_report_html == "FALLBACK_TRIGGERED" or "403 ERROR" in output_report_html:
                 output_report_html = execute_local_fallback_synthesis(g_name, p_title, avg_score, total_votes, peer_comments_raw)
+            else:
+                # Secondary cleanup check to protect text layout boundaries
+                output_report_html = output_report_html.replace("```html", "").replace("```", "").strip()
             
             st.info("📊 **Presentation Performance Evaluation Report**")
             st.markdown(output_report_html, unsafe_allow_html=True)
