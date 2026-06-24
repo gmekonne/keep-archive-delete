@@ -41,3 +41,25 @@ try:
     conn.close()
 except Exception as e:
     st.error(f"Failed to synchronize documentation from database server: {e}")
+
+# 2. Render Phase: Format and print text strings to screen dynamically
+if not load_success or not db_student_guide_content.strip():
+    st.warning("⚠️ Documentation Offline: The student user manual has not been uploaded to the database master index row yet.")
+    st.info("💡 **Instructor Note:** Log into the Instructor Dashboard and open the **📝 Enter / Edit Guide** operations console to save your master copy.")
+else:
+    # Format modification log metrics beautifully
+    if isinstance(last_updated_timestamp, (datetime.datetime, datetime.date)):
+        formatted_time = last_updated_timestamp.strftime("%B %d, %Y")
+    else:
+        formatted_time = str(last_updated_timestamp)
+        
+    # Render small metadata information tags line right at the top
+    st.caption(f"📚 Edition: **{version_string_tag}** • ⏱️ Documentation Last Sync: *{formatted_time}*")
+    st.markdown("---")
+    
+    # --- RENDER METHOD: PIPES THE RAW MARKDOWN STRING INTO AN INTERACTIVE TEXT GRID ---
+    # Streamlit natively reads markdown tags (#, ##, **, -, etc.) and draws headers and layouts cleanly
+    st.markdown(db_student_guide_content)
+    
+    st.markdown("---")
+    st.caption("📍 *End of CPMS Student Guide Document Matrix. Review your left navigation sidebar menu to execute an operation.*")
