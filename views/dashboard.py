@@ -95,25 +95,20 @@ def get_instructor_courses(user_id):
         return pd.DataFrame(columns=["Course No.", "Course Code", "Course Section", "Course Date", "Course Title"])
 
 user_courses_df = get_instructor_courses(current_uid)
-# --- NEW PIPELINE: COMPUTE DYNAMIC AVERAGE EVALUATIONS BY PRESENTATION TYPE ---
 type_ratings_list = []
 overall_average_label = "0.0"
 
 try:
     conn = get_mysql_connection()
     with conn.cursor() as cursor:
-        # Calculate dynamic global performance score across all evaluations
         cursor.execute("SELECT FORMAT(AVG(rating_number), 1) as global_avg FROM rating")
         g_res = cursor.fetchone()
         if g_res and g_res["global_avg"]:
             overall_average_label = f"{g_res['global_avg']} / 5.0"
             
-        # Group, compute averages, and fetch matching presentation type titles dynamically
-        # Automatically filters out types with zero evaluations due to INNER JOIN properties
         sql_type_performance = """
-            SELECT t.ptypeTitle AS 'Presentation Type', 
-                   FORMAT(AVG(r.rating_number), 1) AS 'Average Rating',
-                   COUNT(r.rating_number) AS 'Total Evaluated'
+            SELECT t.ptypeTitle AS 'Type', 
+                   FORMAT(AVG(r.rating_number), 1) AS 'Average Score'
             FROM rating r
             INNER JOIN presentationType t ON r.ptypeID = t.ptypeID
             GROUP BY r.ptypeID, t.ptypeTitle
@@ -123,20 +118,32 @@ try:
         type_ratings_list = cursor.fetchall()
     conn.close()
 except Exception as e:
-    overall_average_label = "Pipeline Warning"
+    overall_average_label = "Error"
 
-# Top Metric Summaries Row
+# --- COMPACT HEADER METRIC CARD GRID PLACEMENT ---
 m_col1, m_col2, m_col3 = st.columns(3)
-with m_col1: st.metric(label="Your Registered Courses", value=str(len(user_courses_df)))
-with m_col2: st.metric(label="Overall Performance Average", value=overall_average_label)
-with m_col3: st.metric(label="Database Pipeline", value="Hostinger Live Sync")
-
-# --- RENDER TYPE RATINGS DATAFRAME SUMMARY ROWS ---
-if type_ratings_list:
-    st.markdown("##### 🏅 Score Metrics Breakdown by Presentation Type")
-    df_metrics = pd.DataFrame(type_ratings_list)
-    # Renders the exact clean rows of title, calculated averages, and submission counts
-    st.dataframe(df_metrics, width="stretch", hide_index=True)
+with m_col1: 
+    st.metric(label="Your Registered Courses", value=str(len(user_courses_df)))
+    
+with m_col2: 
+    # FIXED: The table is now shrunken, includes the overall average row, and sits right inside the card boundaries
+    st.caption("📊 Performance Scores Index")
+    
+    # Process the metrics list into a clean combined list matrix data layer structure
+    processed_rows = []
+    if type_ratings_list:
+        for item in type_ratings_list:
+            processed_rows.append({"Evaluation Type": item["Type"], "Rating": f"★ {item['Average Score']}"})
+            
+    # Inject the Overall Total System Performance Average as the anchor summary line row
+    processed_rows.append({"Evaluation Type": "⭐ OVERALL AVERAGE", "Rating": f"★ {overall_average_label}"})
+    
+    df_mini_metrics = pd.DataFrame(processed_rows)
+    # Outputs a tight, beautiful shrunken metrics layout spreadsheet
+    st.dataframe(df_mini_metrics, width="stretch", hide_index=True)
+    
+with m_col3: 
+    st.metric(label="Database Pipeline", value="Hostinger Live Sync")
 
 st.markdown("---")
 
@@ -157,7 +164,7 @@ with right_panel:
     else:
         selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed", key="dash_course_sel_v2")
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        selected_course_id = int(matched_row["Course No."].iloc[0]) if not matched_row.empty else 0
+        selected_course_id = int(matched_row["Course No."].iloc) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
