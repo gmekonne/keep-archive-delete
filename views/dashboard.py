@@ -38,6 +38,12 @@ def run_edit_guide_modal():
     with open("views/edit_guide_form.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/edit_guide_form.py", "exec"), globals())
 
+# 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
+@st.dialog("📂 View & Grade Student Participation Logs", width="large")
+def run_view_contributions_modal():
+    with open("views/view_contributions.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/view_contributions.py", "exec"), globals())
+
 
 
 # --- SIDEBAR UTILITIES ---
@@ -226,8 +232,11 @@ with sec1_expander:
             run_edit_guide_modal()
     
     with col2:
-        if st.button("📈 View Contributions", width="stretch"): st.info("Contribution metrics loaded.")
+        # FIXED: Overwrites the placeholder text string and triggers your interactive popup form drawer window!
+        if st.button("📈 View Contributions", width="stretch"): 
+            run_view_contributions_modal()
         if st.button("🔄 Import Students from Brightspace", width="stretch"): st.info("Brightspace triggered.")
+
 
 with sec2_expander:
     col3, col4 = st.columns(2)
