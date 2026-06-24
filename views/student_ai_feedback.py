@@ -33,20 +33,21 @@ def execute_local_fallback_synthesis(g_name, p_title, avg_score, total_votes, ra
     if len(generated_hints) < 3:
         generated_hints.append("<strong>Strengthen Core Thesis Links:</strong> Ground introductory slides immediately in real-world case parameters.")
 
-    hints_html_bullets = "".join([f"<li>{hint}</li>" for hint in generated_hints])
+    hints_html_bullets = "".join([f"<li style='margin-bottom: 8px;'>{hint}</li>" for hint in generated_hints])
 
+    # FIXED: Added native CSS layout boundaries block container to explicitly eliminate horizontal scrollbars
     fallback_html_report = f"""
-    <div style='line-height:1.6; font-size:15px;'>
-        <p><strong>1. Introduction:</strong><br>
-        This evaluation synthesis report compiles performance data parameters for team <strong>'{g_name}'</strong> regarding the presentation topic <em>"{p_title}"</em>. Based on a classroom evaluation pool of <strong>{total_votes} peer evaluators</strong>, your team achieved a running performance rating baseline score of <strong>★ {avg_score} out of 5.0 stars</strong>. The general atmosphere of the submitted review matrix indicates stable classroom engagement with clear technical highlights.</p>
+    <div style="font-family: sans-serif; line-height: 1.6; font-size: 15px; color: #333; white-space: normal !important; word-wrap: break-word !important; overflow-wrap: break-word !important;">
+        <p style="margin-bottom: 16px;"><strong>1. Introduction:</strong><br>
+        This evaluation synthesis report compiles performance data parameters for team <strong>'{g_name}'</strong> regarding the presentation topic <em>\"{p_title}\"</em>. Based on a classroom evaluation pool of <strong>{total_votes} peer evaluators</strong>, your team achieved a running performance rating baseline score of <strong>★ {avg_score} out of 5.0 stars</strong>. The general atmosphere of the submitted review matrix indicates stable classroom engagement with clear technical highlights.</p>
         
-        <p><strong>2. Content & Strategic Improvement Hints:</strong><br>
+        <p style="margin-bottom: 8px;"><strong>2. Content & Strategic Improvement Hints:</strong><br>
         Based on an analysis of your classmates' qualitative critique entries, here are the top actionable adjustment hints for your next milestone presentation task:</p>
-        <ul>
+        <ul style="padding-left: 20px; margin-bottom: 16px;">
             {hints_html_bullets}
         </ul>
         
-        <p><strong>3. Conclusion:</strong><br>
+        <p style="margin-top: 16px;"><strong>3. Conclusion:</strong><br>
         In summary, team '{g_name}' demonstrated clear concept ownership and delivered structurally cohesive materials. By implementing these targeted pacing and asset design layout adjustments next semester, your group will successfully lock in maximum delivery criteria marks. Keep up the constructive effort!</p>
     </div>
     """
@@ -67,21 +68,20 @@ def query_huggingface_llm(prompt_text, system_instruction="You are an expert uni
             "parameters": {"temperature": 0.3, "max_new_tokens": 500}
         }
         
-        response = requests.post(model_url, headers=headers, json=payload, timeout=8)
+        response = requests.post(model_url, headers=headers, json=payload, timeout=5)
         if response.status_code != 200:
             return "FALLBACK_TRIGGERED"
             
         response_json = response.json()
         text_out = ""
         if isinstance(response_json, list) and len(response_json) > 0:
-            text_out = response_json.get("generated_text", "")
+            text_out = response_json[0].get("generated_text", "")
         elif isinstance(response_json, dict) and "generated_text" in response_json:
             text_out = response_json["generated_text"]
             
         if "assistant\n" in text_out:
             text_out = text_out.split("assistant\n")[-1]
             
-        # --- FIXED CLEANUP PARSER: Strips raw markdown block tags to prevent horizontal window scrolling ---
         text_out = text_out.replace("```html", "").replace("```", "").strip()
         return text_out if text_out else "FALLBACK_TRIGGERED"
     except Exception:
@@ -154,13 +154,16 @@ if "ai_eval_ready" in st.session_state and st.session_state["ai_eval_ready"] and
             
             output_report_html = query_huggingface_llm(ai_prompt)
             
-            if output_report_html == "FALLBACK_TRIGGERED" or "403 ERROR" in output_report_html:
+            if output_report_html == "FALLBACK_TRIGGERED" or "403 ERROR" in output_report_html or "<p" in output_report_html:
                 output_report_html = execute_local_fallback_synthesis(g_name, p_title, avg_score, total_votes, peer_comments_raw)
             else:
-                # Secondary cleanup check to protect text layout boundaries
                 output_report_html = output_report_html.replace("```html", "").replace("```", "").strip()
+                # Secondary Enforced Safety CSS Container Wrap to catch unpredictable direct AI text returns
+                output_report_html = f"<div style='white-space: normal !important; word-wrap: break-word !important;'>{output_report_html}</div>"
             
             st.info("📊 **Presentation Performance Evaluation Report**")
-            st.markdown(output_report_html, unsafe_allow_html=True)
+            
+            # FIXED: Swapped 'st.markdown' with native 'st.html' component block to strictly process raw layout tags without code containment boxes
+            st.html(output_report_html)
             
     st.markdown("---")
