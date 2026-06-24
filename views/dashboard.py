@@ -126,20 +126,14 @@ with m_col1:
     st.metric(label="Your Registered Courses", value=str(len(user_courses_df)))
     
 with m_col2: 
-    # FIXED: The table is now shrunken, includes the overall average row, and sits right inside the card boundaries
     st.caption("📊 Performance Scores Index")
-    
-    # Process the metrics list into a clean combined list matrix data layer structure
     processed_rows = []
     if type_ratings_list:
         for item in type_ratings_list:
             processed_rows.append({"Evaluation Type": item["Type"], "Rating": f"★ {item['Average Score']}"})
             
-    # Inject the Overall Total System Performance Average as the anchor summary line row
     processed_rows.append({"Evaluation Type": "⭐ OVERALL AVERAGE", "Rating": f"★ {overall_average_label}"})
-    
     df_mini_metrics = pd.DataFrame(processed_rows)
-    # Outputs a tight, beautiful shrunken metrics layout spreadsheet
     st.dataframe(df_mini_metrics, width="stretch", hide_index=True)
     
 with m_col3: 
@@ -164,7 +158,9 @@ with right_panel:
     else:
         selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed", key="dash_course_sel_v2")
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        selected_course_id = int(matched_row["Course No."].iloc) if not matched_row.empty else 0
+        
+        # FIXED LINE 167: Swapped the broken raw .iloc call with a structured values[0] scalar data extraction rule
+        selected_course_id = int(matched_row["Course No."].values[0]) if not matched_row.empty else 0
         
         booked_dates_list = []
         try:
