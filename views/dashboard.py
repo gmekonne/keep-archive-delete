@@ -32,19 +32,15 @@ def run_manage_catalog_modal():
     with open("views/view_delete_course.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/view_delete_course.py", "exec"), globals())
 
-# Add this caller right below your manage catalog dialog definitions near the top
 @st.dialog("📝 Enter/Edit System Guidelines", width="large")
 def run_edit_guide_modal():
     with open("views/edit_guide_form.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/edit_guide_form.py", "exec"), globals())
 
-# 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
 @st.dialog("📂 View & Grade Student Participation Logs", width="large")
 def run_view_contributions_modal():
     with open("views/view_contributions.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/view_contributions.py", "exec"), globals())
-
-
 
 # --- SIDEBAR UTILITIES ---
 with st.sidebar:
@@ -99,14 +95,51 @@ def get_instructor_courses(user_id):
         return pd.DataFrame(columns=["Course No.", "Course Code", "Course Section", "Course Date", "Course Title"])
 
 user_courses_df = get_instructor_courses(current_uid)
+# --- NEW PIPELINE: COMPUTE DYNAMIC AVERAGE EVALUATIONS BY PRESENTATION TYPE ---
+type_ratings_list = []
+overall_average_label = "0.0"
+
+try:
+    conn = get_mysql_connection()
+    with conn.cursor() as cursor:
+        # Calculate dynamic global performance score across all evaluations
+        cursor.execute("SELECT FORMAT(AVG(rating_number), 1) as global_avg FROM rating")
+        g_res = cursor.fetchone()
+        if g_res and g_res["global_avg"]:
+            overall_average_label = f"{g_res['global_avg']} / 5.0"
+            
+        # Group, compute averages, and fetch matching presentation type titles dynamically
+        # Automatically filters out types with zero evaluations due to INNER JOIN properties
+        sql_type_performance = """
+            SELECT t.ptypeTitle AS 'Presentation Type', 
+                   FORMAT(AVG(r.rating_number), 1) AS 'Average Rating',
+                   COUNT(r.rating_number) AS 'Total Evaluated'
+            FROM rating r
+            INNER JOIN presentationType t ON r.ptypeID = t.ptypeID
+            GROUP BY r.ptypeID, t.ptypeTitle
+            ORDER BY AVG(r.rating_number) DESC
+        """
+        cursor.execute(sql_type_performance)
+        type_ratings_list = cursor.fetchall()
+    conn.close()
+except Exception as e:
+    overall_average_label = "Pipeline Warning"
 
 # Top Metric Summaries Row
 m_col1, m_col2, m_col3 = st.columns(3)
 with m_col1: st.metric(label="Your Registered Courses", value=str(len(user_courses_df)))
-with m_col2: st.metric(label="Average Presentation Evaluation", value="4.85 / 5.0")
+with m_col2: st.metric(label="Overall Performance Average", value=overall_average_label)
 with m_col3: st.metric(label="Database Pipeline", value="Hostinger Live Sync")
 
+# --- RENDER TYPE RATINGS DATAFRAME SUMMARY ROWS ---
+if type_ratings_list:
+    st.markdown("##### 🏅 Score Metrics Breakdown by Presentation Type")
+    df_metrics = pd.DataFrame(type_ratings_list)
+    # Renders the exact clean rows of title, calculated averages, and submission counts
+    st.dataframe(df_metrics, width="stretch", hide_index=True)
+
 st.markdown("---")
+
 # Split Screen Layout Row
 left_panel, right_panel = st.columns(2)
 
@@ -123,11 +156,7 @@ with right_panel:
         st.caption("Awaiting course entries to establish scheduling modules.")
     else:
         selected_course = st.selectbox("Select target course:", options=user_courses_df["Course Code"].tolist(), label_visibility="collapsed", key="dash_course_sel_v2")
-        
-        # Pull matching courseID safely from dataframe
         matched_row = user_courses_df[user_courses_df["Course Code"] == selected_course]
-        
-        # FIXED EXPR: Appended positional coordinate brackets [0] to extract the clean integer data row parameter
         selected_course_id = int(matched_row["Course No."].iloc[0]) if not matched_row.empty else 0
         
         booked_dates_list = []
@@ -156,7 +185,6 @@ with right_panel:
             chosen_date_label = st.selectbox("Select an upcoming presentation date to audit:", options=list(date_options_map.keys()), key="dash_date_picker_v2")
             target_iso_date = date_options_map[chosen_date_label]
             
-            # --- OVERLAY MODAL: LOADS THE PRESENTATION DETAILS AND SECURE ROUTING KEYS ---
             @st.dialog("📋 Booked Presenter Details Matrix", width="large")
             def show_fresh_presenter_details_modal(course_name, course_id, target_date_obj):
                 st.write(f"### 🎤 Presenters for {course_name}")
@@ -199,7 +227,7 @@ with right_panel:
                                     st.markdown(f"📝 **Description Summary:**\n*{desc_text}*")
                                     
                                     if rand_hash:
-                                        correct_full_url = f"https://keep-archive-delete-hgqqsmfkqpwhbjedahdsny.streamlit.app/?page=student_rate_form&postID={rand_hash}"
+                                        correct_full_url = f"https://streamlit.app{rand_hash}"
                                         st.text_input("🔗 Copy Shareable Peer Rating Link for this Group:", value=correct_full_url, key=f"url_v2_widget_{s['pres_dateID']}")
                                         st.caption("Instructors can copy this link to paste into Zoom chat or project on screen for live evaluations.")
                                         
@@ -222,21 +250,12 @@ sec2_expander = st.expander("⭐ 2. Presentations and Ratings", expanded=True)
 with sec1_expander:
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("➕ Add Course", width="stretch"):
-            run_add_course_modal()
-        if st.button("❌ View / Delete Course", width="stretch"):
-            run_manage_catalog_modal()
-        
-        # 🟢 ADD THIS NEW INTERACTIVE TRIGGER BUTTON HERE:
-        if st.button("📝 Enter / Edit Guide", use_container_width=True):
-            run_edit_guide_modal()
-    
+        if st.button("➕ Add Course", width="stretch"): run_add_course_modal()
+        if st.button("❌ View / Delete Course", width="stretch"): run_manage_catalog_modal()
+        if st.button("📝 Enter / Edit Guide", width="stretch"): run_edit_guide_modal()
     with col2:
-        # FIXED: Overwrites the placeholder text string and triggers your interactive popup form drawer window!
-        if st.button("📈 View Contributions", width="stretch"): 
-            run_view_contributions_modal()
+        if st.button("📈 View Contributions", width="stretch"): run_view_contributions_modal()
         if st.button("🔄 Import Students from Brightspace", width="stretch"): st.info("Brightspace triggered.")
-
 
 with sec2_expander:
     col3, col4 = st.columns(2)
