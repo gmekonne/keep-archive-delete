@@ -6,6 +6,7 @@ import requests
 import secrets
 
 def get_mysql_connection():
+    """Creates a fresh real-time socket link straight to Hostinger."""
     return pymysql.connect(
         host=st.secrets["mysql"]["host"],
         user=st.secrets["mysql"]["user"],
@@ -50,6 +51,7 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
     try:
         conn = get_mysql_connection()
         with conn.cursor() as cursor:
+            # STEP 1: Verify the group exists inside the system index parameters
             cursor.execute("SELECT groupID, groupName, courseID FROM presentationgroup WHERE groupID = %s", (int(input_group_id),))
             group_record = cursor.fetchone()
             
@@ -57,24 +59,36 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
                 st.error(f"❌ Verification Failed: No registered group found matching ID '{input_group_id}'.")
                 st.session_state["active_student_group_id"] = None
             else:
-                cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate, userID FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
-                course_record = cursor.fetchone()
+                # 🟢 THE DUPLICATE BLOCK GUARD: Check if this specific Group ID has ALREADY locked in a presentation entry row
+                cursor.execute("SELECT presID, presTitle, pres_date FROM presentation WHERE groupID = %s", (int(input_group_id),))
+                already_has_presentation = cursor.fetchone()
                 
-                if not course_record:
-                    st.error("❌ Linkage Error: Your group points to a course track that no longer exists.")
+                if already_has_presentation:
+                    formatted_p_date = already_has_presentation["pres_date"].strftime('%A, %B %d, %Y')
+                    st.error(f"⚠️ Scheduling Access Restricted: Group {input_group_id} has already recorded a presentation project slot!")
+                    st.warning(f"ℹ️ **Existing Profile Title:** '{already_has_presentation['presTitle']}' scheduled for **{formatted_p_date}**.")
+                    st.info("💡 *Note: If you need to rearrange your calendar day allocation parameters, please contact your class instructor directly to adjust your row slots.*")
+                    st.session_state["active_student_group_id"] = None
                 else:
-                    TERM_LABELS = {"1": "Fall", "2": "Winter", "3": "Summer"}
-                    raw_term = str(course_record["courseTerm"])
-                    term_text = TERM_LABELS.get(raw_term, f"Term {raw_term}")
-                    year_text = str(course_record["courseDate"].year) if isinstance(course_record["courseDate"], (datetime.date, datetime.datetime)) else "N/A"
+                    # Proceed normally with setup bindings only if zero duplicate rows exist
+                    cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate, userID FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
+                    course_record = cursor.fetchone()
+                    
+                    if not course_record:
+                        st.error("❌ Linkage Error: Your group points to a course track that no longer exists.")
+                    else:
+                        TERM_LABELS = {"1": "Fall", "2": "Winter", "3": "Summer"}
+                        raw_term = str(course_record["courseTerm"])
+                        term_text = TERM_LABELS.get(raw_term, f"Term {raw_term}")
+                        year_text = str(course_record["courseDate"].year) if isinstance(course_record["courseDate"], (datetime.date, datetime.datetime)) else "N/A"
 
-                    st.session_state["active_student_group_id"] = group_record["groupID"]
-                    st.session_state["active_student_group_name"] = group_record["groupName"]
-                    st.session_state["active_student_course_id"] = group_record["courseID"]
-                    st.session_state["active_student_course_label"] = f"{course_record['courseCode']} - Section {course_record['courseSection']} ({term_text} {year_text})"
-                    st.session_state["active_student_course_section"] = course_record["courseSection"]
-                    st.session_state["active_student_instructor_id"] = course_record["userID"]
-                    st.rerun()
+                        st.session_state["active_student_group_id"] = group_record["groupID"]
+                        st.session_state["active_student_group_name"] = group_record["groupName"]
+                        st.session_state["active_student_course_id"] = group_record["courseID"]
+                        st.session_state["active_student_course_label"] = f"{course_record['courseCode']} - Section {course_record['courseSection']} ({term_text} {year_text})"
+                        st.session_state["active_student_course_section"] = course_record["courseSection"]
+                        st.session_state["active_student_instructor_id"] = course_record["userID"]
+                        st.rerun()
         conn.close()
     except Exception as e:
         st.error(f"Server lookup connection failure: {e}")
@@ -98,7 +112,6 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                 cursor.execute("SELECT pres_dateID, presDate FROM presentationdate WHERE courseID = %s AND dateTaken = 0 ORDER BY presDate ASC", (int(c_id),))
                 open_slots_list = cursor.fetchall()
                 
-                # OPTIMIZATION: Query both ptypeID and ptypeTitle to map key constraints correctly
                 cursor.execute("SELECT ptypeID, ptypeTitle FROM presentationType ORDER BY ptypeTitle ASC")
                 types_data = cursor.fetchall()
                 if types_data:
@@ -144,7 +157,7 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                 else:
                     with st.spinner("AI engine checking alignment with course syllabus parameters..."):
                         try:
-                            conn = get_cached_mysql_connection()
+                            conn = get_mysql_connection()
                             with conn.cursor() as cursor:
                                 cursor.execute("SELECT syllabus_text FROM course WHERE courseID = %s", (int(c_id),))
                                 course_data = cursor.fetchone()
