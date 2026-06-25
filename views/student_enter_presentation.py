@@ -31,11 +31,23 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a constructiv
             "inputs": f"<|im_start|>system\n{system_instruction}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n",
             "parameters": {"temperature": 0.3, "max_new_tokens": 450}
         }
-        
+
+
         response = requests.post(model_url, headers=headers, json=payload, timeout=8)
-        if response.status_code != 200:
+        
+        # 🔍 DIAGNOSTIC MODE: Explicitly alerts you on screen if the token or server connection fails
+        if response.status_code == 403:
+            st.toast("⚠️ AI Token Block: Hugging Face rejected your API Key credentials. Check your token role type settings.", icon="🔑")
             return "FALLBACK_TRIGGERED"
-            
+        elif response.status_code == 429:
+            st.toast("⏳ AI Rate Limited: Hugging Face server is currently overloaded. Waiting for queue to clear...", icon="⚡")
+            return "FALLBACK_TRIGGERED"
+        elif response.status_code != 200:
+            st.toast(f"ℹ️ Server Note: Status {response.status_code}. Details: {response.text[:80]}", icon="📢")
+            return "FALLBACK_TRIGGERED"
+
+
+        
         response_json = response.json()
         text_out = ""
         if isinstance(response_json, list) and len(response_json) > 0:
