@@ -29,10 +29,8 @@ if st.button("Fetch Course Guidelines", use_container_width=True):
             group_record = cursor.fetchone()
             
             if not group_record:
-                # Error Check: Handles when the group does not exist in the platform ecosystem
                 st.error(f"❌ Verification Failed: Group ID '{input_gid}' is not registered in the system.")
                 st.info("💡 **Next Step:** If you are part of a new team, go to the **👤 1. Create Student Account** tab to register your group roster first.")
-            
             else:
                 # Step 2: Fetch corresponding parameters straight from the parent course row table matching fields
                 sql_course = """
@@ -65,10 +63,24 @@ if st.button("Fetch Course Guidelines", use_container_width=True):
                         # Extract and sanitize the real-time instructions text parameters from the DB
                         raw_instructions = course_record["instruction"]
                         if not raw_instructions or str(raw_instructions).strip().lower() in ["none", ""]:
-                            st.info("ℹ️ Your instructor has not added specific text text guidelines for this course track yet.")
+                            st.info("ℹ️ Your instructor has not added specific guidelines for this course track yet.")
                         else:
-                            # Safely render instructions box layout
-                            st.write(raw_instructions)
+                            # --- FIXED: PARSES TEXT LINE-BY-LINE AND PARAGRAPH-BY-PARAGRAPH ---
+                            # Step A: Clean up weird hidden database carriage return sequences (\r\n) down to standard line breaks (\n)
+                            sanitized_text = str(raw_instructions).replace("\r\n", "\n").replace("\r", "\n").strip()
+                            
+                            # Step B: Replace single line breaks with a web breakthrough tag (<br>) to keep continuous lineation
+                            # And replace double line breaks with custom structural spacing wrappers to build separate paragraphs
+                            html_formatted_instructions = ""
+                            paragraphs = [p for p in sanitized_text.split("\n\n") if p.strip()]
+                            
+                            for p in paragraphs:
+                                # Within each paragraph, preserve individual single-line breaks cleanly
+                                line_broken_text = p.replace("\n", "<br>")
+                                html_formatted_instructions += f"<p style='margin-bottom: 16px; line-height: 1.6;'>{line_broken_text}</p>"
+                            
+                            # Step C: Render using the native HTML component to ensure responsive, wrapped visual formatting
+                            st.html(f"<div style='white-space: normal; word-break: break-word; font-family: sans-serif; font-size: 15px; color: #333;'>{html_formatted_instructions}</div>")
                             
         conn.close()
     except Exception as server_error:
