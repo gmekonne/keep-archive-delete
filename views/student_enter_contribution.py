@@ -38,7 +38,7 @@ if st.button("Verify My Profile & Load Submission Form", use_container_width=Tru
                 course_record = cursor.fetchone()
                 
                 # --- NEW PIPELINE: Fetch all individual student roster members belonging to this groupID ---
-                cursor.execute("SELECT studentID, studentName FROM student WHERE groupID = %s", (int(input_gid),))
+                cursor.execute("SELECT stuID, studentName FROM student WHERE groupID = %s", (int(input_gid),))
                 roster_rows = cursor.fetchall()
                 
                 if not course_record:
@@ -54,7 +54,7 @@ if st.button("Verify My Profile & Load Submission Form", use_container_width=Tru
                     st.session_state["active_contrib_course_label"] = f"{course_record['courseCode']} (Section {course_record['courseSection']})"
                     
                     # Store a dictionary mapping student names to their true studentID numbers
-                    st.session_state["active_contrib_roster_map"] = {r["studentName"]: r["studentID"] for r in roster_rows}
+                    st.session_state["active_contrib_roster_map"] = {r["studentName"]: r["stuID"] for r in roster_rows}
                     st.rerun()
         conn.close()
     except Exception as e:
