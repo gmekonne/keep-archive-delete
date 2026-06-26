@@ -18,10 +18,11 @@ def get_mysql_connection():
         autocommit=True
     )
 
+
+
 def query_huggingface_llm(prompt_text, system_instruction="You are a helpful academic assistant."):
     """Native InferenceClient connector that bypasses CloudFront caching firewalls entirely."""
     try:
-        # Verify the secret exists securely
         if "huggingface" not in st.secrets or "api_token" not in st.secrets["huggingface"]:
             return "FALLBACK_TRIGGERED"
             
@@ -30,28 +31,25 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a helpful aca
         # Initialize the official native client wrapper using your un-gated Qwen model path
         client = InferenceClient(model="Qwen/Qwen2.5-Coder-7B-Instruct", token=hf_token)
         
-        # Compile standard system and user chat payload structures
         messages = [
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": prompt_text}
         ]
         
-        # Execute direct serverless inference tracking stream call
         response = client.chat_completion(
             messages=messages,
             max_tokens=450,
             temperature=0.3
         )
         
-        # Extract response text directly out of the native response object
-        text_out = response.choices.text.strip()
+        # 🟢 FIXED: Using the exact nested object path to extract the raw text content string cleanly
+        text_out = response.choices[0].message.content.strip()
         
-        # Clean any trailing markdown formatting code fences from the string
         text_out = text_out.replace("```html", "").replace("```", "").strip()
         return text_out if text_out else "FALLBACK_TRIGGERED"
     except Exception:
-        # If any network drop occurs, the app safely drops back to your verified local fallback code instantly
         return "FALLBACK_TRIGGERED"
+
 
 
 
