@@ -59,7 +59,7 @@ def execute_local_fallback_fit_check(title, abstract, syllabus):
     """Fallback Engine: Analyzes topic fit locally if the cloud API drops."""
     title_words = set(str(title).lower().split())
     abstract_words = set(str(abstract).lower().split())
-    syllabus_words = set(str(syllabus).lower().split())
+    syllabus_words = set(str(syllabus_text).lower().split())
     
     matched_keywords = title_words.union(abstract_words).intersection(syllabus_words)
     matched_keywords = [w for w in matched_keywords if len(w) > 4]
