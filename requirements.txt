@@ -8,3 +8,4 @@ ollama
 pymysql
 cryptography
 bcrypt
+huggingface_hub>=0.20.0
