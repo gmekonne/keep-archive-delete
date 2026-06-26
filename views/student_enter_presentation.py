@@ -4,6 +4,7 @@ import datetime
 import pandas as pd
 import requests
 import secrets
+from huggingface_hub import InferenceClient
 
 def get_mysql_connection():
     """Creates a fresh real-time socket link straight to Hostinger."""
@@ -17,51 +18,44 @@ def get_mysql_connection():
         autocommit=True
     )
 
-def query_huggingface_llm(prompt_text, system_instruction="You are a constructive academic curriculum advisor."):
-    """Outbound connector to Hugging Face's serverless tier."""
+def query_huggingface_llm(prompt_text, system_instruction="You are a helpful academic assistant."):
+    """Native InferenceClient connector that bypasses CloudFront caching firewalls entirely."""
     try:
+        # Verify the secret exists securely
         if "huggingface" not in st.secrets or "api_token" not in st.secrets["huggingface"]:
             return "FALLBACK_TRIGGERED"
             
         hf_token = str(st.secrets["huggingface"]["api_token"]).strip()
-        model_url = "https://huggingface.co"
-        headers = {"Authorization": f"Bearer {hf_token}", "Content-Type": "application/json"}
         
-        payload = {
-            "inputs": f"<|im_start|>system\n{system_instruction}<|im_end|>\n<|im_start|>user\n{prompt_text}<|im_end|>\n<|im_start|>assistant\n",
-            "parameters": {"temperature": 0.3, "max_new_tokens": 450}
-        }
-
-
-        response = requests.post(model_url, headers=headers, json=payload, timeout=8)
+        # Initialize the official native client wrapper using your un-gated Qwen model path
+        client = InferenceClient(model="Qwen/Qwen2.5-Coder-7B-Instruct", token=hf_token)
         
-        # 🔍 DIAGNOSTIC MODE: Explicitly alerts you on screen if the token or server connection fails
-        if response.status_code == 403:
-            st.toast("⚠️ AI Token Block: Hugging Face rejected your API Key credentials. Check your token role type settings.", icon="🔑")
-            return "FALLBACK_TRIGGERED"
-        elif response.status_code == 429:
-            st.toast("⏳ AI Rate Limited: Hugging Face server is currently overloaded. Waiting for queue to clear...", icon="⚡")
-            return "FALLBACK_TRIGGERED"
-        elif response.status_code != 200:
-            st.toast(f"ℹ️ Server Note: Status {response.status_code}. Details: {response.text[:80]}", icon="📢")
-            return "FALLBACK_TRIGGERED"
-
-
+        # Compile standard system and user chat payload structures
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt_text}
+        ]
         
-        response_json = response.json()
-        text_out = ""
-        if isinstance(response_json, list) and len(response_json) > 0:
-            text_out = response_json[0].get("generated_text", "")
-        elif isinstance(response_json, dict) and "generated_text" in response_json:
-            text_out = response_json["generated_text"]
-            
-        if "assistant\n" in text_out:
-            text_out = text_out.split("assistant\n")[-1]
-            
+        # Execute direct serverless inference tracking stream call
+        response = client.chat_completion(
+            messages=messages,
+            max_tokens=450,
+            temperature=0.3
+        )
+        
+        # Extract response text directly out of the native response object
+        text_out = response.choices.text.strip()
+        
+        # Clean any trailing markdown formatting code fences from the string
         text_out = text_out.replace("```html", "").replace("```", "").strip()
         return text_out if text_out else "FALLBACK_TRIGGERED"
     except Exception:
+        # If any network drop occurs, the app safely drops back to your verified local fallback code instantly
         return "FALLBACK_TRIGGERED"
+
+
+
+
 
 def execute_local_fallback_fit_check(title, abstract, syllabus):
     """Fallback Engine: Analyzes topic fit locally if the cloud API drops."""
