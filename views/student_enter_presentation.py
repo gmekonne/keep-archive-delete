@@ -18,17 +18,13 @@ def get_mysql_connection():
         autocommit=True
     )
 
-
-
-def query_huggingface_llm(prompt_text, system_instruction="You are a helpful academic assistant."):
-    """Native InferenceClient connector that bypasses CloudFront caching firewalls entirely."""
+def query_huggingface_llm(prompt_text, system_instruction="You are a constructive academic curriculum advisor."):
+    """Official Native InferenceClient connector that bypasses CloudFront firewalls entirely."""
     try:
         if "huggingface" not in st.secrets or "api_token" not in st.secrets["huggingface"]:
             return "FALLBACK_TRIGGERED"
             
         hf_token = str(st.secrets["huggingface"]["api_token"]).strip()
-        
-        # Initialize the official native client wrapper using your un-gated Qwen model path
         client = InferenceClient(model="Qwen/Qwen2.5-Coder-7B-Instruct", token=hf_token)
         
         messages = [
@@ -42,18 +38,12 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a helpful aca
             temperature=0.3
         )
         
-        # 🟢 FIXED: Using the exact nested object path to extract the raw text content string cleanly
+        # Pull the message text content out of the response object safely
         text_out = response.choices[0].message.content.strip()
-        
         text_out = text_out.replace("```html", "").replace("```", "").strip()
         return text_out if text_out else "FALLBACK_TRIGGERED"
     except Exception:
         return "FALLBACK_TRIGGERED"
-
-
-
-
-
 
 def execute_local_fallback_fit_check(title, abstract, syllabus):
     """Fallback Engine: Analyzes topic fit locally if the cloud API drops."""
@@ -74,9 +64,9 @@ def execute_local_fallback_fit_check(title, abstract, syllabus):
 
     fallback_html = f"""
     <div style='line-height:1.6; font-size:15px; white-space: normal !important;'>
-        <p><strong>📊 AI Syllabus Fit Alignment:</strong> {'⭐' * score} ({score}/5 Stars)</p>
+        <p><strong>📊 AI Syllabus Fit Alignment (Local Fallback):</strong> {'⭐' * score} ({score}/5 Stars)</p>
         <p><strong>Feedback Analysis:</strong><br>
-        Your presentation topic <em>"{title}"</em> has been verified locally against your instructor's syllabus requirements text. The script identified several correlating core subject matter keywords: <u>{', '.join(matched_keywords[:6]) if matched_keywords else 'General Fields'}</u>.</p>
+        Your presentation topic <em>\"{title}\"</em> has been verified locally against your instructor's syllabus requirements text. The script identified several correlating core subject matter keywords: <u>{', '.join(matched_keywords[:6]) if matched_keywords else 'General Fields'}</u>.</p>
         <p><strong>Strategic Suggestion Hint:</strong><br>
         {hints}</p>
     </div>
@@ -100,7 +90,8 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
                 st.error(f"❌ Verification Failed: No registered group found matching ID '{input_group_id}'.")
                 st.session_state["active_student_group_id"] = None
             else:
-                cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate, userID FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
+                # 🟢 FIXED: Grab syllabus_text right now during initial load phase so it is 100% fetched successfully
+                cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate, userID, syllabus_text FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
                 course_record = cursor.fetchone()
                 
                 if not course_record:
@@ -133,6 +124,9 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
                     st.session_state["active_student_course_label"] = f"{course_record['courseCode']} - Section {course_record['courseSection']} ({term_text} {year_text})"
                     st.session_state["active_student_course_section"] = course_record["courseSection"]
                     st.session_state["active_student_instructor_id"] = course_record["userID"]
+                    
+                    # 🟢 CACHE IT SECURELY: Lock the loaded syllabus text safely into stable memory context state lines
+                    st.session_state["active_student_syllabus"] = course_record["syllabus_text"] if course_record["syllabus_text"] else "No specific text outline mapped."
                     st.rerun()
         conn.close()
     except Exception as e:
@@ -188,7 +182,6 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
         if not slot_options:
             st.warning("⚠️ Scheduling Restricted: No available calendar slots found for this track.")
         else:
-            # FIXED: Removed the accidental trailing comma typo from options list argument parameter
             selected_slot_label = st.selectbox("Select Calendar Presentation Slot *", options=list(slot_options.keys()))
             target_slot_record = slot_options[selected_slot_label]
             
@@ -197,33 +190,42 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
             topic_title = st.text_input("Presentation Topic / Title Name *", value=st.session_state.get("prefill_title", ""), placeholder="e.g., Implementing LLMs via Streamlit")
             topic_abstract = st.text_area("Provide a Short Abstract / Overview summary", value=st.session_state.get("prefill_desc", ""), placeholder="Provide a brief explanation...")
             
+            # --- THE ADVANCED AND FIXED LLM SYLLABUS FIT CHECKER ---
             if st.button("🔍 Check Topic Fit", use_container_width=True):
                 if not topic_title or not topic_abstract:
                     st.error("Please enter a title and description before running AI checks.")
                 else:
                     with st.spinner("AI checking alignment with course syllabus parameters..."):
-                        try:
-                            conn = get_mysql_connection()
-                            with conn.cursor() as cursor:
-                                cursor.execute("SELECT syllabus_text FROM course WHERE courseID = %s", (int(c_id),))
-                                course_data = cursor.fetchone()
-                            conn.close()
+                        # 🟢 SAFE AND RAPID: We bypass Hostinger completely and read straight from the memory state block cache!
+                        syllabus_context = st.session_state.get("active_student_syllabus", "None mapped.")
+                        
+                        fit_prompt = f"""
+                        Review if this proposed presentation topic fits well within the following course syllabus parameters.
+                        
+                        --- COURSE SYLLABUS ---
+                        {syllabus_context}
+                        
+                        --- PROPOSED STUDENT TOPIC ---
+                        Proposed Title: {topic_title}
+                        Proposed Abstract: {topic_abstract}
+                        
+                        Guidelines:
+                        - Estimate an alignment score out of 5 stars (e.g. ⭐⭐⭐⭐) for syllabus fit.
+                        - Provide concise, practical suggestions for improvement.
+                        - Return your entire response formatted cleanly as simple HTML using ONLY <p>, <strong>, and <ul><li> blocks. 
+                        - Do not include raw markdown symbols, external links, or code fences.
+                        """
+                        
+                        feedback_html = query_huggingface_llm(fit_prompt)
+                        
+                        # Fallback handler executes seamlessly if Hugging Face hits a traffic spike
+                        if feedback_html == "FALLBACK_TRIGGERED" or "403 ERROR" in feedback_html or "CloudFront" in feedback_html:
+                            feedback_html = execute_local_fallback_fit_check(topic_title, topic_abstract, syllabus_context)
+                        else:
+                            feedback_html = f"<div style='white-space: normal !important; word-wrap: break-word !important;'>{feedback_html}</div>"
                             
-                            syllabus_context = course_data["syllabus_text"] if course_data else "None provided."
-                            
-                            fit_prompt = f"Review if topic fits syllabus.\nSyllabus:\n{syllabus_context}\n\nTitle: {topic_title}\nAbstract: {topic_abstract}\nOutput HTML."
-                            feedback_html = query_huggingface_llm(fit_prompt)
-                            
-                            if feedback_html == "FALLBACK_TRIGGERED" or "403 ERROR" in feedback_html or "CloudFront" in feedback_html:
-                                feedback_html = execute_local_fallback_fit_check(topic_title, topic_abstract, syllabus_context)
-                            else:
-                                feedback_html = feedback_html.replace("```html", "").replace("```", "").strip()
-                                feedback_html = f"<div style='white-space: normal !important; word-wrap: break-word !important;'>{feedback_html}</div>"
-                                
-                            st.info("📊 **AI Syllabus Alignment Feedback**")
-                            st.html(feedback_html)
-                        except Exception as err: 
-                            st.error(f"Failed to compile syllabus parameters: {err}")
+                        st.info("📊 **AI Syllabus Alignment Feedback**")
+                        st.html(feedback_html)
             
             st.markdown("---")
             button_label = "🔄 Update My Presentation & Reschedule Slot" if is_update_mode else "🔒 Lock in Presentation Slot & Confirm Selection"
