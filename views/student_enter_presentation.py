@@ -38,8 +38,7 @@ def query_huggingface_llm(prompt_text, system_instruction="You are a constructiv
             temperature=0.3
         )
         
-        # Pull the message text content out of the response object safely
-        text_out = response.choices[0].message.content.strip()
+        text_out = response.choices.message.content.strip()
         text_out = text_out.replace("```html", "").replace("```", "").strip()
         return text_out if text_out else "FALLBACK_TRIGGERED"
     except Exception:
@@ -90,7 +89,6 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
                 st.error(f"❌ Verification Failed: No registered group found matching ID '{input_group_id}'.")
                 st.session_state["active_student_group_id"] = None
             else:
-                # 🟢 FIXED: Grab syllabus_text right now during initial load phase so it is 100% fetched successfully
                 cursor.execute("SELECT courseCode, courseSection, courseTerm, courseDate, userID, syllabus_text FROM course WHERE courseID = %s", (int(group_record["courseID"]),))
                 course_record = cursor.fetchone()
                 
@@ -125,7 +123,6 @@ if st.button("Fetch My Group & Course Details", use_container_width=True):
                     st.session_state["active_student_course_section"] = course_record["courseSection"]
                     st.session_state["active_student_instructor_id"] = course_record["userID"]
                     
-                    # 🟢 CACHE IT SECURELY: Lock the loaded syllabus text safely into stable memory context state lines
                     st.session_state["active_student_syllabus"] = course_record["syllabus_text"] if course_record["syllabus_text"] else "No specific text outline mapped."
                     st.rerun()
         conn.close()
@@ -196,31 +193,36 @@ if "active_student_group_id" in st.session_state and st.session_state["active_st
                     st.error("Please enter a title and description before running AI checks.")
                 else:
                     with st.spinner("AI checking alignment with course syllabus parameters..."):
-                        # 🟢 SAFE AND RAPID: We bypass Hostinger completely and read straight from the memory state block cache!
-                        syllabus_context = st.session_state.get("active_student_syllabus", "None mapped.")
+                        raw_syllabus = st.session_state.get("active_student_syllabus", "None mapped.")
                         
+                        # 🟢 FIXED: Flatten and sanitize the syllabus text entirely to stop string transmission collapse
+                        flattened_syllabus = str(raw_syllabus).replace("\n", " ").replace("\r", " ").strip()
+                        
+                        # We build an explicitly bounded prompt so the AI can easily extract the text
                         fit_prompt = f"""
-                        Review if this proposed presentation topic fits well within the following course syllabus parameters.
+                        You are analyzing a presentation topic against a course syllabus.
                         
-                        --- COURSE SYLLABUS ---
-                        {syllabus_context}
+                        [START_SYLLABUS]
+                        {flattened_syllabus}
+                        [END_SYLLABUS]
                         
-                        --- PROPOSED STUDENT TOPIC ---
+                        [START_STUDENT_TOPIC]
                         Proposed Title: {topic_title}
                         Proposed Abstract: {topic_abstract}
+                        [END_STUDENT_TOPIC]
                         
-                        Guidelines:
-                        - Estimate an alignment score out of 5 stars (e.g. ⭐⭐⭐⭐) for syllabus fit.
-                        - Provide concise, practical suggestions for improvement.
-                        - Return your entire response formatted cleanly as simple HTML using ONLY <p>, <strong>, and <ul><li> blocks. 
-                        - Do not include raw markdown symbols, external links, or code fences.
+                        Instructions:
+                        1. Compare the student topic against the syllabus keywords and objectives bounded above.
+                        2. Estimate an alignment score out of 5 stars (e.g. ⭐⭐⭐⭐) for syllabus fit.
+                        3. Provide specific, practical suggestions for improvement based on the syllabus context.
+                        4. Return your entire response formatted cleanly as simple HTML using ONLY <p>, <strong>, and <ul><li> blocks. 
+                        5. Do not use raw markdown code blocks. Start your answer directly with the HTML.
                         """
                         
                         feedback_html = query_huggingface_llm(fit_prompt)
                         
-                        # Fallback handler executes seamlessly if Hugging Face hits a traffic spike
                         if feedback_html == "FALLBACK_TRIGGERED" or "403 ERROR" in feedback_html or "CloudFront" in feedback_html:
-                            feedback_html = execute_local_fallback_fit_check(topic_title, topic_abstract, syllabus_context)
+                            feedback_html = execute_local_fallback_fit_check(topic_title, topic_abstract, flattened_syllabus)
                         else:
                             feedback_html = f"<div style='white-space: normal !important; word-wrap: break-word !important;'>{feedback_html}</div>"
                             
