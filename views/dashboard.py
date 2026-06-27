@@ -55,6 +55,16 @@ def run_view_groups_modal():
     with open("views/view_groups_form.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/view_groups_form.py", "exec"), globals())
 
+# 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
+@st.dialog("🏅 Executive Presentation Grading Ledger", width="large")
+def run_grade_presentation_modal():
+    with open("views/grade_presentation_form.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/grade_presentation_form.py", "exec"), globals())
+
+
+
+
+
 # --- SIDEBAR UTILITIES ---
 with st.sidebar:
     st.image("https://icons8.com", width=60)
@@ -288,7 +298,11 @@ with sec2_expander:
         # 🟢 FIXED TRIGGER: Overwrites the old text string placeholder line and launches your evaluation ledger popup!
         if st.button("📝 Load Peer Ratings", width="stretch"): 
             run_load_peer_ratings_modal()
-        if st.button("🏅 Grade Presentations", width="stretch"): st.info("Grading rubric active.")
+        
+        # 🟢 FIXED TRIGGER: Overwrites the old placeholder text line and triggers your input grading modal!
+        if st.button("🏅 Grade Presentations", width="stretch"): 
+            run_grade_presentation_modal()
+            
     with col4:
         if st.button("📊 View Grades", width="stretch"): st.info("Gradebook calculations displayed.")
         if st.button("📥 Download Brightspace CSV", width="stretch"): st.info("Generating Brightspace compatible CSV file...")
