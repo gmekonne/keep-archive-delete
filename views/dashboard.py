@@ -43,6 +43,13 @@ def run_view_contributions_modal():
         exec(compile(f.read(), "views/view_contributions.py", "exec"), globals())
 
 # 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
+@st.dialog("📝 Audit Peer Evaluations & Ratings Ledger", width="large")
+def run_load_peer_ratings_modal():
+    with open("views/load_peer_ratings_form.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/load_peer_ratings_form.py", "exec"), globals())
+
+
+# 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
 @st.dialog("👥 Active Group & Roster Directory", width="large")
 def run_view_groups_modal():
     with open("views/view_groups_form.py", encoding="utf-8") as f:
@@ -278,7 +285,9 @@ with sec2_expander:
         # 🟢 FIXED BUTTON NAME & FUNCTION: Swapped 'Load Presentations' with your fresh View Groups console trigger
         if st.button("👥 View Groups", width="stretch"): 
             run_view_groups_modal()
-        if st.button("📝 Load Peer Ratings", width="stretch"): st.info("Peer evaluations imported.")
+        # 🟢 FIXED TRIGGER: Overwrites the old text string placeholder line and launches your evaluation ledger popup!
+        if st.button("📝 Load Peer Ratings", width="stretch"): 
+            run_load_peer_ratings_modal()
         if st.button("🏅 Grade Presentations", width="stretch"): st.info("Grading rubric active.")
     with col4:
         if st.button("📊 View Grades", width="stretch"): st.info("Gradebook calculations displayed.")
