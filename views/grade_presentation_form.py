@@ -48,11 +48,11 @@ else:
             
             # 2. Fetch the structural grading rubrics configuration criteria weights
             # Targets fields from your 'grading_rubric' schema table layout
-            cursor.execute("SELECT rubricID, rubricName, maxPoints FROM grading_rubric ORDER BY rubricID ASC")
+            cursor.execute("SELECT rubricID, rubricDescription, maxPoints FROM grading_rubric ORDER BY rubricID ASC")
             rubric_rows = cursor.fetchall()
             if rubric_rows:
                 # Map titles to their exact weights for clear guidance context prompts
-                rubric_options_map = {f"📝 {r['rubricName']} (Max: {r['maxPoints']} Points)": r for r in rubric_rows}
+                rubric_options_map = {f"📝 {r['rubricDescription']} (Max: {r['maxPoints']} Points)": r for r in rubric_rows}
                 
         conn.close()
     except Exception as e:
