@@ -42,6 +42,12 @@ def run_view_contributions_modal():
     with open("views/view_contributions.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/view_contributions.py", "exec"), globals())
 
+# 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
+@st.dialog("👥 Active Group & Roster Directory", width="large")
+def run_view_groups_modal():
+    with open("views/view_groups_form.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/view_groups_form.py", "exec"), globals())
+
 # --- SIDEBAR UTILITIES ---
 with st.sidebar:
     st.image("https://icons8.com", width=60)
