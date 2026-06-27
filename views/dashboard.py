@@ -168,6 +168,9 @@ with right_panel:
         
         # FIXED SCALAR ELEMENT EXTRACTION: Safe from type crashes
         selected_course_id = int(matched_row["Course No."].values[0]) if not matched_row.empty else 0
+
+        # 🟢 ADD THIS LINE HERE: Caches the course ID into stable state memory for sub-modals to inherit
+        st.session_state["active_dashboard_last_cid"] = selected_course_id
         
         booked_dates_list = []
         try:
@@ -272,7 +275,9 @@ with sec1_expander:
 with sec2_expander:
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("👥 Load Presentations and Groups", width="stretch"): st.info("Group data synchronized.")
+        # 🟢 FIXED BUTTON NAME & FUNCTION: Swapped 'Load Presentations' with your fresh View Groups console trigger
+        if st.button("👥 View Groups", width="stretch"): 
+            run_view_groups_modal()
         if st.button("📝 Load Peer Ratings", width="stretch"): st.info("Peer evaluations imported.")
         if st.button("🏅 Grade Presentations", width="stretch"): st.info("Grading rubric active.")
     with col4:
