@@ -97,12 +97,21 @@ else:
                     # Enforced Transactional Save Rule: Commits the metric straight to the presentation table row
                     sql_commit_grade = "UPDATE presentation SET presGrade = %s WHERE presID = %s"
                     cursor.execute(sql_commit_grade, (float(assigned_points), int(target_pres_id)))
-                    
-                st.success(f"🎉 Success! A final presentation mark of **{assigned_points}** has been securely recorded for team **'{chosen_pres['groupName']}'**.")
-                st.balloons()
                 conn.close()
+                
+                # 🟢 FIXED: Flash a quick toast pop-up notice FIRST so it is guaranteed to show on screen
+                st.toast(f"🎉 Success! Grade of {assigned_points} saved for '{chosen_pres['groupName']}'.", icon="💾")
+                
+                # Show the primary success card alert panel cleanly
+                st.success(f"🎉 Roster mark of **{assigned_points}** successfully recorded!")
+                st.balloons()
+                
+                # Let Streamlit pause for a brief moment to render the graphics before refreshing the data rows
+                st.info("🔄 Auto-refreshing gradebook ledger records...")
                 st.rerun()
+                
             except Exception as tx_err:
                 st.error(f"Failed to write presentation grade payload cell: {tx_err}")
+
                 
     st.markdown("---")
