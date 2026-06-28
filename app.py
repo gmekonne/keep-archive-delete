@@ -12,24 +12,24 @@ st.set_page_config(page_title="ClassParticipation Hub", layout="wide", initial_s
 # PUBLIC CONFIGURATION: LANDING PAGES & STUDENT HUBS (NO LOGIN REQUIRED)
 # =====================================================================
 if not st.session_state.logged_in:
-    # Core Landing Information
+    # Core Landing Information (Left at the absolute top)
     home_page = st.Page("views/home.py", title="🏠 Welcome Home", default=True)
-    login_page = st.Page("views/login.py", title="🔑 Instructor Sign In")
     
-    # Core Instructor Sign Up Pages
+    # Core Instructor Sign In & Registration Pages
+    login_page = st.Page("views/login.py", title="🔑 Instructor Sign In")
     personal_reg = st.Page("views/register_personal.py", title="📝 Register Personal")
     corporate_reg = st.Page("views/register_corporate.py", title="🏢 Register Corporate")
     reset_pass = st.Page("views/reset_password.py", title="🔓 Reset Password")
     
-    # Student Zone Workspace Route Identifiers
-    st_create_acct = st.Page("views/student_create_account.py", title="👤 1. Create Student Account")
-    st_enter_pres  = st.Page("views/student_enter_presentation.py", title="🎤 2. Enter Presentation")
-    st_view_dates  = st.Page("views/student_view_dates.py", title="📅 3. View Presentation Dates")
-    st_view_inst   = st.Page("views/student_view_instructions.py", title="📋 4. View Presentation Guidelines")
-    st_view_rating = st.Page("views/student_view_ratings.py", title="⭐ 5. View Ratings & Feedback")
-    st_view_guide  = st.Page("views/student_view_guide.py", title="📖 6. View Student Guide")
-    st_enter_contrib = st.Page("views/student_enter_contribution.py", title="💡 7. Enter Class Contributions")
-    st_ai_feedback = st.Page("views/student_ai_feedback.py", title="🤖 8. AI-Generated Feedback")
+    # Student Zone Workspace Route Identifiers (Cleaned: Numbers completely removed)
+    st_create_acct = st.Page("views/student_create_account.py", title="👤 Create Student Account")
+    st_enter_pres  = st.Page("views/student_enter_presentation.py", title="🎤 Enter Presentation")
+    st_view_dates  = st.Page("views/student_view_dates.py", title="📅 View Presentation Dates")
+    st_view_inst   = st.Page("views/student_view_instructions.py", title="📋 View Presentation Guidelines")
+    st_view_rating = st.Page("views/student_view_ratings.py", title="⭐ View Ratings & Feedback")
+    st_view_guide  = st.Page("views/student_view_guide.py", title="📖 View Student Guide")
+    st_enter_contrib = st.Page("views/student_enter_contribution.py", title="💡 Enter Class Contributions")
+    st_ai_feedback = st.Page("views/student_ai_feedback.py", title="🤖 AI-Generated Feedback")
     
     # Register the hidden evaluation form page at system core root level
     st_hidden_form = st.Page("views/student_rate_form.py", title="Rate Current Presentation")
@@ -38,15 +38,14 @@ if not st.session_state.logged_in:
     url_params = st.query_params
     
     # --- SMART OVERRIDE INTERCEPTOR ---
-    # Bypasses the sidebar menu and opens the rating form instantly when hit via secure link
     if "page" in url_params and str(url_params["page"]) == "student_rate_form":
         pg = st.navigation([st_hidden_form], position="hidden")
         pg.run()
     else:
-        # --- FIXED REARRANGEMENT: INSTRUCTOR EXECUTIVE GATE IS NOW AT THE ABSOLUTE TOP ---
+        # --- FIXED ALIGNMENT: Welcome Top, Instructor Second, Clean Student Third ---
         pg = st.navigation({
-            "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass],
             "Information Channel": [home_page],
+            "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass],
             "Student Zone Workspace": [
                 st_create_acct, st_enter_pres, st_view_dates, st_view_inst, 
                 st_view_rating, st_view_guide, st_enter_contrib, st_ai_feedback
