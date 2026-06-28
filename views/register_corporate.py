@@ -1,58 +1,183 @@
 import streamlit as st
-import datetime
+import requests
 import pymysql
-import bcrypt
+import datetime
+import json
+from requests.auth import HTTPBasicAuth
 
-st.title("🏢 Corporate Instructor Registration")
-st.write("Establish an institutional account with organizational mapping.")
+def get_mysql_connection():
+    """Fresh uncached real-time link straight to Hostinger."""
+    return pymysql.connect(
+        host=st.secrets["mysql"]["host"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"],
+        database=st.secrets["mysql"]["database"],
+        port=st.secrets["mysql"].get("port", 3306),
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True
+    )
 
-with st.form("corporate_registration_form"):
-    email = st.text_input("Work Email Address")
-    password = st.text_input("Password", type="password")
-    confirm_password = st.text_input("Confirm Password", type="password")
-    fname = st.text_input("First Name")
-    lname = st.text_input("Last Name")
-    corp_name = st.text_input("Institution / Corporation Name")
-    org_id = st.text_input("Assigned Organization ID (orgID)")
+def get_paypal_access_token():
+    """Generates an ephemeral bearer access token from PayPal using basic auth."""
+    client_id = st.secrets["paypal"]["client_id"]
+    client_secret = st.secrets["paypal"]["client_secret"]
+    mode = st.secrets["paypal"]["mode"]
     
-    submit = st.form_submit_button("Register Paid Corporate Account", use_container_width=True)
+    base_url = "https://paypal.com" if mode == "sandbox" else "https://paypal.com"
+    token_url = f"{base_url}/v1/oauth2/token"
+    
+    headers = {"Accept": "application/json", "Accept-Language": "en_US"}
+    payload = {"grant_type": "client_credentials"}
+    
+    response = requests.post(token_url, auth=HTTPBasicAuth(client_id, client_secret), headers=headers, data=payload, timeout=10)
+    if response.status_code == 200:
+        return response.json().get("access_token"), base_url
+    return None, None
 
-if submit:
-    if not email or not password or not corp_name or not org_id:
-        st.error("Required fields missing.")
-    elif password != confirm_password:
-        st.error("Passwords do not match.")
+def create_paypal_order(price_amount, company_name, target_instructor_uid):
+    """Outbound payload setup: Spawns the order and binds custom_id exactly like your PHP file."""
+    token, base_url = get_paypal_access_token()
+    if not token:
+        return None
+        
+    order_url = f"{base_url}/v2/checkout/orders"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
+    payload = {
+        "intent": "CAPTURE",
+        "purchase_units": [{
+            "description": f"CPMS Corporate Enterprise Activation - Organization: {company_name}",
+            "custom_id": str(target_instructor_uid), 
+            "amount": {"currency_code": "USD", "value": f"{price_amount:.2f}"}
+        }],
+        "application_context": {
+            "return_url": f"https://streamlit.app",
+            "cancel_url": "https://streamlit.app"
+        }
+    }
+    
+    response = requests.post(order_url, headers=headers, json=payload, timeout=10)
+    if response.status_code in:
+        return response.json()
+    return None
+
+st.title("🏢 Corporate & Institutional Portal Registration")
+st.write("Register your educational organization, submit purchase requests, and deploy system access tokens via PayPal checkout.")
+st.markdown("---")
+# 1. UI Information Processing Fields Layer
+with st.form("corporate_registration_details_form"):
+    corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University")
+    corp_email = st.text_input("Administrative Account Email *", placeholder="admin@domain.com")
+    corp_seats = st.number_input("Target Seat Allocations (Total Instructor Accounts)", min_value=5, max_value=500, value=25, step=5)
+    
+    calculated_subtotal = float(corp_seats * 10.0)
+    st.info(f"🏅 **Enterprise Invoice Quote:** {corp_seats} Teacher Accounts @ $10.00 each = **${calculated_subtotal:.2f} USD / Semester**")
+    
+    checkout_submit_btn = st.form_submit_button("💳 Initialize Secure PayPal Corporate Checkout", use_container_width=True)
+
+if checkout_submit_btn:
+    if not corp_name or not corp_email:
+        st.error("All starred fields are required to process your organization registration profile.")
     else:
-        try:
-            # Calculate initial paid subscription status and expiry date
-            current_date = datetime.date.today()
-            expiry_date = current_date + datetime.timedelta(days=365)  # +12 months
-            subscription_status = 'pending'  # Pending until PayPal confirms payment
+        with st.spinner("Connecting to PayPal payment gateway servers..."):
+            mock_target_uid = st.session_state.get("user_id", 1) 
             
-            conn = pymysql.connect(
-                host=st.secrets["mysql"]["host"],
-                user=st.secrets["mysql"]["user"],
-                password=st.secrets["mysql"]["password"],
-                database=st.secrets["mysql"]["database"],
-                port=st.secrets["mysql"].get("port", 3306)
-            )
+            order_object = create_paypal_order(calculated_subtotal, corp_name, mock_target_uid)
             
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            if hashed_password.startswith("$2b$"):
-                hashed_password = hashed_password.replace("$2b$", "$2y$", 1)
+            if not order_object:
+                st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Audit your secrets configurations.")
+            else:
+                paypal_order_id = order_object["id"]
+                approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
                 
-            with conn.cursor() as cursor:
-                # Updated SQL matching corporate subscription setup
-                sql = """
-                    INSERT INTO user (role, fname, lname, email, password, corp_name, acct_type, orgID, dateCreated, expirty_date, subscription_status) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-                cursor.execute(sql, (
-                    "instructor", fname, lname, email.lower().strip(), 
-                    hashed_password, corp_name, "corporate", org_id, current_date, expiry_date, subscription_status
-                ))
-            conn.commit()
-            conn.close()
-            st.success("🏢 Corporate profile created! Your account status is 'pending' until the PayPal transaction is confirmed.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+                # Cache user parameters safely inside temporary session memory buffers
+                st.session_state["pending_corp_order_id"] = paypal_order_id
+                st.session_state["pending_corp_name"] = corp_name
+                st.session_state["pending_uid"] = mock_target_uid
+                
+                st.success("🎉 Purchase Order spawned successfully! Please click the authorization button below to finalize your transaction.")
+                st.link_button("🚀 Proceed to PayPal Secure Payment Portal", url=approve_link, use_container_width=True)
+
+st.markdown("---")
+
+# =====================================================================
+# 2. AUTO-CAPTURE GATEWAY: PORTED DIRECTLY FROM YOUR PHP DB ACTIONS
+# =====================================================================
+url_params = st.query_params
+incoming_token = url_params.get("token")
+
+if incoming_token:
+    pending_order_id = st.session_state.get("pending_corp_order_id")
+    
+    if pending_order_id:
+        st.info("⚡ Detecting incoming payment clearing metrics. Verifying transaction payload...")
+        
+        token, base_url = get_paypal_access_token()
+        if token:
+            capture_url = f"{base_url}/v2/checkout/orders/{pending_order_id}/capture"
+            headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+            
+            cap_response = requests.post(capture_url, headers=headers, json={}, timeout=10)
+            
+            if cap_response.status_code in:
+                res_data = cap_response.json()
+                payment_status = res_data.get("status") 
+                
+                if payment_status == "COMPLETED":
+                    paypal_txn_id = res_data.get("id")
+                    
+                    purchase_unit = res_data["purchase_units"][0]
+                    capture_object = purchase_unit["payments"]["captures"][0]
+                    captured_amount = capture_object["amount"]["value"]
+                    captured_currency = capture_object["amount"]["currency_code"]
+                    
+                    custom_subscription_id = purchase_unit.get("custom_id")
+                    if not custom_subscription_id:
+                        custom_subscription_id = st.session_state.get("pending_uid", 1)
+                        
+                    try:
+                        conn = get_mysql_connection()
+                        with conn.cursor() as cursor:
+                            # PHP Step 1: Prevent duplicate processing for this txn_id
+                            cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_txn_id,))
+                            dup_check = cursor.fetchone()
+                            
+                            if dup_check and dup_check["cnt"] > 0:
+                                st.warning("🎉 Payment already processed previously.")
+                            else:
+                                current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                
+                                # PHP Step 2: Update user's subscription status using custom ID
+                                sql_update_user = """
+                                    UPDATE user 
+                                    SET subscription_status = 'active', 
+                                        last_payment_date = %s, 
+                                        paypal_order_id = %s 
+                                    WHERE userID = %s
+                                """
+                                cursor.execute(sql_update_user, (current_ts, paypal_txn_id, int(custom_subscription_id)))
+                                
+                                # PHP Step 3: Insert transaction auditing ledger record
+                                sql_insert_txn = """
+                                    INSERT INTO transactions 
+                                    (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
+                                    VALUES (%s, %s, %s, %s, %s, 'PayPal', %s, %s)
+                                """
+                                transaction_data_json = json.dumps(res_data)
+                                cursor.execute(sql_insert_txn, (
+                                    int(custom_subscription_id), paypal_txn_id, float(captured_amount),
+                                    captured_currency, payment_status, transaction_data_json, current_ts
+                                ))
+                                
+                                st.success(f"🎉 **Payment Captured Successfully!** System access activated for user ID {custom_subscription_id}.")
+                                st.balloons()
+                                
+                        conn.close()
+                        st.session_state["pending_corp_order_id"] = None
+                        st.query_params.clear()
+                    except Exception as db_err:
+                        st.error(f"Database sync exception: {db_err}")
+                else:
+                    st.error(f"❌ Payment not completed. Status returned: {payment_status}")
+            else:
+                st.error("❌ Failed to execute order capture command to PayPal endpoints.")
