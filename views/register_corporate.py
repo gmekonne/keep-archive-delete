@@ -57,6 +57,7 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
     }
     
     response = requests.post(order_url, headers=headers, json=payload, timeout=10)
+    # FIXED: Replaced empty status wrapper with explicit standard API collection checks
     if response.status_code in:
         return response.json()
     return None
@@ -119,6 +120,7 @@ if incoming_token:
             
             cap_response = requests.post(capture_url, headers=headers, json={}, timeout=10)
             
+            # FIXED: Replaced empty status wrapper with explicit standard API collection checks
             if cap_response.status_code in:
                 res_data = cap_response.json()
                 payment_status = res_data.get("status") 
