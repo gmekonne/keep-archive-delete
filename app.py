@@ -31,27 +31,26 @@ if not st.session_state.logged_in:
     st_enter_contrib = st.Page("views/student_enter_contribution.py", title="💡 7. Enter Class Contributions")
     st_ai_feedback = st.Page("views/student_ai_feedback.py", title="🤖 8. AI-Generated Feedback")
     
-    # REGISTER THE RATER FORM AS A REAL PAGE AT THE SYSTEM CORE LEVEL
-    # Note: Streamlit uses the python filename without extension as its URL target slug value name
+    # Register the hidden evaluation form page at system core root level
     st_hidden_form = st.Page("views/student_rate_form.py", title="Rate Current Presentation")
 
-    # Check the URL address parameters BEFORE mounting the sidebar menu
+    # Check the URL address parameters BEFORE mounting the sidebar menu layout tree
     url_params = st.query_params
     
     # --- SMART OVERRIDE INTERCEPTOR ---
-    # If a student clicks a Brightspace link targeting our secret rater page, we bypass the sidebar menu rules
+    # Bypasses the sidebar menu and opens the rating form instantly when hit via secure link
     if "page" in url_params and str(url_params["page"]) == "student_rate_form":
         pg = st.navigation([st_hidden_form], position="hidden")
         pg.run()
     else:
-        # Construct the normal, organized public sidebar navigation tree layout dictionary
+        # --- FIXED REARRANGEMENT: INSTRUCTOR EXECUTIVE GATE IS NOW AT THE ABSOLUTE TOP ---
         pg = st.navigation({
+            "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass],
             "Information Channel": [home_page],
             "Student Zone Workspace": [
                 st_create_acct, st_enter_pres, st_view_dates, st_view_inst, 
                 st_view_rating, st_view_guide, st_enter_contrib, st_ai_feedback
-            ],
-            "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass]
+            ]
         })
         pg.run()
 
