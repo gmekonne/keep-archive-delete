@@ -61,6 +61,11 @@ def run_grade_presentation_modal():
     with open("views/grade_presentation_form.py", encoding="utf-8") as f:
         exec(compile(f.read(), "views/grade_presentation_form.py", "exec"), globals())
 
+# 🟢 ADD THIS NEW ROUTE MODAL WRAPPER FUNCTION:
+@st.dialog("📊 Executive Class Gradebook Ledger", width="large")
+def run_view_grades_modal():
+    with open("views/view_grades_form.py", encoding="utf-8") as f:
+        exec(compile(f.read(), "views/view_grades_form.py", "exec"), globals())
 
 
 
@@ -304,5 +309,8 @@ with sec2_expander:
             run_grade_presentation_modal()
             
     with col4:
-        if st.button("📊 View Grades", width="stretch"): st.info("Gradebook calculations displayed.")
+        # 🟢 FIXED TRIGGER: Overwrites the old placeholder text line and triggers your gradebook list modal table!
+        if st.button("📊 View Grades", width="stretch"): 
+            run_view_grades_modal()
+        
         if st.button("📥 Download Brightspace CSV", width="stretch"): st.info("Generating Brightspace compatible CSV file...")
