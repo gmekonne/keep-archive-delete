@@ -3,6 +3,7 @@ import requests
 import pymysql
 import datetime
 import json
+import hashlib
 from requests.auth import HTTPBasicAuth
 
 def get_mysql_connection():
@@ -86,7 +87,7 @@ if current_system_mode == "SANDBOX":
     st.caption(f"🛡️ Active Gateway Network Status: **{current_system_mode} MODE ACTIVE**")
 else:
     st.caption(f"🛡️ Active Gateway Network Status: **{current_system_mode} PRODUCTION MODE**")
-# 1. UI Information Processing Fields Layer (Aligned perfectly with your custom user table fields)
+# 1. UI Information Processing Fields Layer (Includes a secure password hashing text entry row)
 with st.form("corporate_registration_details_form"):
     col_n1, col_n2 = st.columns(2)
     with col_n1:
@@ -96,6 +97,10 @@ with st.form("corporate_registration_details_form"):
         
     corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University")
     corp_email = st.text_input("Administrative Account Email *", placeholder="admin@domain.com")
+    
+    # 🟢 NEW SELECTION: Added secure hidden text widget password element
+    corp_password = st.text_input("Create Portal Access Password *", type="password", placeholder="Choose a strong password string")
+    
     corp_seats = st.number_input("Target Seat Allocations (Total Instructor Accounts)", min_value=5, max_value=500, value=25, step=5)
     
     calculated_subtotal = float(corp_seats * 10.0)
@@ -104,25 +109,29 @@ with st.form("corporate_registration_details_form"):
     checkout_submit_btn = st.form_submit_button("💳 Initialize Secure PayPal Corporate Checkout", use_container_width=True)
 
 if checkout_submit_btn:
-    if not first_name or not last_name or not corp_name or not corp_email:
+    if not first_name or not last_name or not corp_name or not corp_email or not corp_password:
         st.error("All starred fields are required to process your organization registration profile.")
     else:
-        with st.spinner("Writing pending account data and connecting to PayPal..."):
+        with st.spinner("Writing encrypted pending account data and connecting to PayPal..."):
             try:
+                # 🟢 SECURITY COMPONENT: Compute SHA-256 password hash natively to match your personal file rules
+                hashed_password_string = hashlib.sha256(corp_password.strip().encode('utf-8')).hexdigest()
+                
                 conn = get_mysql_connection()
                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
                 with conn.cursor() as cursor:
-                    # STEP A: Matches your absolute column field names layout: fname, lname, corp_name, dateCreated, acct_type, subscription_status
+                    # STEP A: Create the user row FIRST with hashed password parameters
                     sql_create_pending_user = """
-                        INSERT INTO user (fname, lname, corp_name, email, acct_type, subscription_status, dateCreated) 
-                        VALUES (%s, %s, %s, %s, 'corporate', 'pending', %s)
+                        INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role) 
+                        VALUES (%s, %s, %s, %s, %s, 'corporate', 'pending', %s, 'instructor', 'instructor')
                     """
                     cursor.execute(sql_create_pending_user, (
                         first_name.strip(), 
                         last_name.strip(), 
                         corp_name.strip(), 
                         corp_email.strip(), 
+                        hashed_password_string, 
                         current_ts
                     ))
                     
@@ -140,6 +149,7 @@ if checkout_submit_btn:
                     paypal_order_id = order_object["id"]
                     approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
                     
+                    # Cache user parameters safely inside temporary session memory buffers
                     st.session_state["pending_corp_order_id"] = paypal_order_id
                     st.session_state["pending_corp_name"] = corp_name
                     st.session_state["pending_uid"] = new_corporate_userid
@@ -178,8 +188,8 @@ if incoming_token:
                 if payment_status == "COMPLETED":
                     paypal_txn_id = res_data.get("id")
                     
-                    purchase_unit = res_data["purchase_units"][0]
-                    capture_object = purchase_unit["payments"]["captures"][0]
+                    purchase_unit = res_data["purchase_units"]
+                    capture_object = purchase_unit["payments"]["captures"]
                     captured_amount = capture_object["amount"]["value"]
                     captured_currency = capture_object["amount"]["currency_code"]
                     
@@ -200,7 +210,6 @@ if incoming_token:
                                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 
                                 # PHP Step 2: Target the existing record via custom_id and flip status to active
-                                # Corrected to save values directly into your 'subscription_status', 'last_payment_date', and 'paypal_order_id' fields
                                 sql_update_user = """
                                     UPDATE user 
                                     SET subscription_status = 'active', 
