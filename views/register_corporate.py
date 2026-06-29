@@ -18,21 +18,37 @@ def get_mysql_connection():
     )
 
 def get_paypal_access_token():
-    """Generates an ephemeral bearer access token from PayPal using basic auth."""
-    client_id = st.secrets["paypal"]["sandbox_client_id"]
-    client_secret = st.secrets["paypal"]["sandbox_client_secret"]
-    mode = st.secrets["paypal"]["mode"]
+    """Generates an ephemeral bearer access token, dynamically selecting sandbox or live keys."""
+    if "paypal" not in st.secrets:
+        st.error("🔑 Configuration Error: The '[paypal]' block header is completely missing from your secrets manager window panel.")
+        return None, None
+        
+    mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     
-    base_url = "https://paypal.com" if mode == "sandbox" else "https://paypal.com"
-    token_url = f"{base_url}/v1/oauth2/token"
-    
-    headers = {"Accept": "application/json", "Accept-Language": "en_US"}
-    payload = {"grant_type": "client_credentials"}
-    
-    response = requests.post(token_url, auth=HTTPBasicAuth(client_id, client_secret), headers=headers, data=payload, timeout=10)
-    if response.status_code == 200:
-        return response.json().get("access_token"), base_url
-    return None, None
+    try:
+        if mode == "sandbox":
+            client_id = st.secrets["paypal"]["sandbox_client_id"]
+            client_secret = st.secrets["paypal"]["sandbox_client_secret"]
+            base_url = "https://paypal.com"
+        else:
+            client_id = st.secrets["paypal"]["live_client_id"]
+            client_secret = st.secrets["paypal"]["live_client_secret"]
+            base_url = "https://paypal.com"
+            
+        token_url = f"{base_url}/v1/oauth2/token"
+        headers = {"Accept": "application/json", "Accept-Language": "en_US"}
+        payload = {"grant_type": "client_credentials"}
+        
+        response = requests.post(token_url, auth=HTTPBasicAuth(client_id, client_secret), headers=headers, data=payload, timeout=10)
+        
+        if response.status_code == 200:
+            return response.json().get("access_token"), base_url
+        else:
+            st.toast(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Response: {response.text[:80]}", icon="❌")
+            return None, None
+    except Exception as e:
+        st.toast(f"🔌 Connection Exception: {e}", icon="⚠️")
+        return None, None
 
 def create_paypal_order(price_amount, company_name, target_instructor_uid):
     """Outbound payload setup: Spawns the order and binds custom_id exactly like your PHP file."""
@@ -57,7 +73,6 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
     }
     
     response = requests.post(order_url, headers=headers, json=payload, timeout=10)
-    # FIXED: Replaced the broken empty array lookups with a clean status code validation comparison
     if response.status_code == 201 or response.status_code == 200:
         return response.json()
     return None
@@ -65,6 +80,12 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
 st.title("🏢 Corporate & Institutional Portal Registration")
 st.write("Register your educational organization, submit purchase requests, and deploy system access tokens via PayPal checkout.")
 st.markdown("---")
+
+current_system_mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().upper()
+if current_system_mode == "SANDBOX":
+    st.caption(f"🛡️ Active Gateway Network Status: **🟢 {current_system_mode} MODE ACTIVE** (Simulated Billing)")
+else:
+    st.caption(f"🛡️ Active Gateway Network Status: **🚨 {current_system_mode} PRODUCTION MODE** (Real-World Processing)")
 # 1. UI Information Processing Fields Layer
 with st.form("corporate_registration_details_form"):
     corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University")
@@ -86,12 +107,11 @@ if checkout_submit_btn:
             order_object = create_paypal_order(calculated_subtotal, corp_name, mock_target_uid)
             
             if not order_object:
-                st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Audit your secrets configurations.")
+                st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Please verify your sandbox vs live matching keys inside the Streamlit Secrets manager window pane panel.")
             else:
                 paypal_order_id = order_object["id"]
                 approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
                 
-                # Cache user parameters safely inside temporary session memory buffers
                 st.session_state["pending_corp_order_id"] = paypal_order_id
                 st.session_state["pending_corp_name"] = corp_name
                 st.session_state["pending_uid"] = mock_target_uid
@@ -120,7 +140,6 @@ if incoming_token:
             
             cap_response = requests.post(capture_url, headers=headers, json={}, timeout=10)
             
-            # FIXED: Replaced the broken empty array lookups with a clean status code validation comparison
             if cap_response.status_code == 201 or cap_response.status_code == 200:
                 res_data = cap_response.json()
                 payment_status = res_data.get("status") 
@@ -140,7 +159,6 @@ if incoming_token:
                     try:
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
-                            # PHP Step 1: Prevent duplicate processing for this txn_id
                             cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_txn_id,))
                             dup_check = cursor.fetchone()
                             
@@ -149,7 +167,6 @@ if incoming_token:
                             else:
                                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 
-                                # PHP Step 2: Update user's subscription status using custom ID
                                 sql_update_user = """
                                     UPDATE user 
                                     SET subscription_status = 'active', 
@@ -159,7 +176,6 @@ if incoming_token:
                                 """
                                 cursor.execute(sql_update_user, (current_ts, paypal_txn_id, int(custom_subscription_id)))
                                 
-                                # PHP Step 3: Insert transaction auditing ledger record
                                 sql_insert_txn = """
                                     INSERT INTO transactions 
                                     (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
@@ -183,3 +199,7 @@ if incoming_token:
                     st.error(f"❌ Payment not completed. Status returned: {payment_status}")
             else:
                 st.error("❌ Failed to execute order capture command to PayPal endpoints.")
+    else:
+        st.warning("⚠️ No pending corporate order ID trace found in session state cache memory.")
+
+st.markdown("---")
