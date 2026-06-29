@@ -19,8 +19,8 @@ def get_mysql_connection():
 
 def get_paypal_access_token():
     """Generates an ephemeral bearer access token from PayPal using basic auth."""
-    client_id = st.secrets["paypal"]["client_id"]
-    client_secret = st.secrets["paypal"]["client_secret"]
+    client_id = st.secrets["paypal"]["sandbox_client_id"]
+    client_secret = st.secrets["paypal"]["sandbox_client_secret"]
     mode = st.secrets["paypal"]["mode"]
     
     base_url = "https://paypal.com" if mode == "sandbox" else "https://paypal.com"
