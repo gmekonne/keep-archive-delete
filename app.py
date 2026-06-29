@@ -12,7 +12,7 @@ st.set_page_config(page_title="ClassParticipation Hub", layout="wide", initial_s
 # PUBLIC CONFIGURATION: LANDING PAGES & STUDENT HUBS (NO LOGIN REQUIRED)
 # =====================================================================
 if not st.session_state.logged_in:
-    # Core Landing Information (Left at the absolute top)
+    # Core Landing Information
     home_page = st.Page("views/home.py", title="🏠 Welcome Home", default=True)
     
     # Core Instructor Sign In & Registration Pages
@@ -21,7 +21,7 @@ if not st.session_state.logged_in:
     corporate_reg = st.Page("views/register_corporate.py", title="🏢 Register Corporate")
     reset_pass = st.Page("views/reset_password.py", title="🔓 Reset Password")
     
-    # Student Zone Workspace Route Identifiers (Cleaned: Numbers completely removed)
+    # Student Zone Workspace Route Identifiers (Cleaned)
     st_create_acct = st.Page("views/student_create_account.py", title="👤 Create Student Account")
     st_enter_pres  = st.Page("views/student_enter_presentation.py", title="🎤 Enter Presentation")
     st_view_dates  = st.Page("views/student_view_dates.py", title="📅 View Presentation Dates")
@@ -34,24 +34,18 @@ if not st.session_state.logged_in:
     # Register the hidden evaluation form page at system core root level
     st_hidden_form = st.Page("views/student_rate_form.py", title="Rate Current Presentation")
 
-    # Check the URL address parameters BEFORE mounting the sidebar menu layout tree
-    url_params = st.query_params
-    
-    # --- SMART OVERRIDE INTERCEPTOR ---
-    if "page" in url_params and str(url_params["page"]) == "student_rate_form":
-        pg = st.navigation([st_hidden_form], position="hidden")
-        pg.run()
-    else:
-        # --- FIXED ALIGNMENT: Welcome Top, Instructor Second, Clean Student Third ---
-        pg = st.navigation({
-            "Information Channel": [home_page],
-            "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass],
-            "Student Zone Workspace": [
-                st_create_acct, st_enter_pres, st_view_dates, st_view_inst, 
-                st_view_rating, st_view_guide, st_enter_contrib, st_ai_feedback
-            ]
-        })
-        pg.run()
+    # --- FIXED: STANDARD ROUTING TREE PLACEMENT ---
+    # We include corporate_reg and st_hidden_form natively within their respective sections
+    # This prevents the server from dropping connections when query strings hit the URL
+    pg = st.navigation({
+        "Information Channel": [home_page],
+        "Instructor Executive Gate": [login_page, personal_reg, corporate_reg, reset_pass],
+        "Student Zone Workspace": [
+            st_create_acct, st_enter_pres, st_view_dates, st_view_inst, 
+            st_view_rating, st_view_guide, st_enter_contrib, st_ai_feedback
+        ]
+    })
+    pg.run()
 
 # =====================================================================
 # PRIVATE CONFIGURATION: LOCKED SECURE INSTRUCTOR AREA
