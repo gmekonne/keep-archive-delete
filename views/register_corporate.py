@@ -19,37 +19,51 @@ def get_mysql_connection():
     )
 
 def get_paypal_access_token():
-    """Generates an ephemeral bearer access token, dynamically selecting sandbox or live keys."""
+    """Generates an ephemeral bearer access token using direct data credentials payload mapping."""
     if "paypal" not in st.secrets:
-        st.error("🔑 Configuration Error: The '[paypal]' block header is missing from your secrets panel.")
+        st.error("🔑 Configuration Error: The '[paypal]' block header is missing from your secrets manager window panel.")
         return None, None
         
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     
-    try:
-        if mode == "sandbox":
-            client_id = st.secrets["paypal"]["sandbox_client_id"]
-            client_secret = st.secrets["paypal"]["sandbox_client_secret"]
-            base_url = "https://paypal.com"
-        else:
-            client_id = st.secrets["paypal"]["live_client_id"]
-            client_secret = st.secrets["paypal"]["live_client_secret"]
-            base_url = "https://paypal.com"
-            
-        token_url = f"{base_url}/v1/oauth2/token"
-        headers = {"Accept": "application/json", "Accept-Language": "en_US"}
-        payload = {"grant_type": "client_credentials"}
+    if mode == "sandbox":
+        client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip()
+        client_secret = str(st.secrets["paypal"]["sandbox_client_secret"]).strip()
+        base_url = "https://paypal.com"
+    else:
+        client_id = str(st.secrets["paypal"]["live_client_id"]).strip()
+        client_secret = str(st.secrets["paypal"]["live_client_secret"]).strip()
+        base_url = "https://paypal.com"
         
-        response = requests.post(token_url, auth=HTTPBasicAuth(client_id, client_secret), headers=headers, data=payload, timeout=10)
+    token_url = f"{base_url}/v1/oauth2/token"
+    
+    # 🟢 FIXED: Swapped basic auth header with direct, flat payload structures to stop 401 rejections
+    headers = {
+        "Accept": "application/json",
+        "Accept-Language": "en_US",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    
+    # Explicitly pass credentials as raw form dictionary items straight to the server
+    payload = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret
+    }
+    
+    try:
+        # Firing standard direct network data request post tracking streams
+        response = requests.post(token_url, headers=headers, data=payload, timeout=10)
         
         if response.status_code == 200:
             return response.json().get("access_token"), base_url
         else:
-            st.toast(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Response: {response.text[:100]}", icon="❌")
+            st.error(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Details: {response.text[:120]}")
             return None, None
     except Exception as e:
         st.toast(f"🔌 Connection Exception: {e}", icon="⚠️")
         return None, None
+
 
 def create_paypal_order(price_amount, company_name, target_instructor_uid):
     """Outbound payload setup: Spawns the order and binds custom_id exactly like your PHP file."""
