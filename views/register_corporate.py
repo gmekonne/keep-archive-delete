@@ -45,7 +45,7 @@ def get_paypal_access_token():
         if response.status_code == 200:
             return response.json().get("access_token"), base_url
         else:
-            st.toast(f"🔒 PayPal OAuth Refused: Status {response.status_code}.", icon="❌")
+            st.toast(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Response: {response.text[:100]}", icon="❌")
             return None, None
     except Exception as e:
         st.toast(f"🔌 Connection Exception: {e}", icon="⚠️")
@@ -76,7 +76,10 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
     response = requests.post(order_url, headers=headers, json=payload, timeout=10)
     if response.status_code == 201 or response.status_code == 200:
         return response.json()
-    return None
+    else:
+        # 🟢 DIAGNOSTIC HIGHLIGHT: Alerts you to the exact raw error string if PayPal throws a payload error
+        st.error(f"⚠️ PayPal Order API Refused ({response.status_code}): {response.text}")
+        return None
 
 st.title("🏢 Corporate & Institutional Portal Registration")
 st.write("Register your educational organization, log account variables, and complete purchase orders via PayPal checkout portals.")
@@ -115,43 +118,32 @@ if checkout_submit_btn:
                 target_email_clean = corp_email.strip().lower()
                 
                 with conn.cursor() as cursor:
-                    # 🟢 NEW PRE-FLIGHT CHECK: Look for duplicate emails inside your user ledger records
                     cursor.execute("SELECT userID FROM user WHERE LOWER(email) = %s", (target_email_clean,))
                     duplicate_user_found = cursor.fetchone()
                     
                     if duplicate_user_found:
-                        st.error(f"⚠️ Account Creation Restricted: The administrative email address **'{target_email_clean}'** is already registered inside our system database records.")
-                        st.info("💡 **Next Step:** If you already have an account, please use the **🔑 Instructor Sign In** panel option from the top of the sidebar navigation menu.")
+                        st.error(f"⚠️ Account Creation Restricted: The administrative email address **'{target_email_clean}'** is already registered.")
                         conn.close()
                     else:
-                        # Compute SHA-256 password hash natively to match your personal file rules
                         hashed_password_string = hashlib.sha256(corp_password.strip().encode('utf-8')).hexdigest()
                         current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         
-                        # STEP A: Create the user row FIRST with hashed password parameters
                         sql_create_pending_user = """
                             INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role) 
                             VALUES (%s, %s, %s, %s, %s, 'corporate', 'pending', %s, 'instructor', 'instructor')
                         """
                         cursor.execute(sql_create_pending_user, (
-                            first_name.strip(), 
-                            last_name.strip(), 
-                            corp_name.strip(), 
-                            target_email_clean, 
-                            hashed_password_string, 
-                            current_ts
+                            first_name.strip(), last_name.strip(), corp_name.strip(), 
+                            target_email_clean, hashed_password_string, current_ts
                         ))
                         
-                        # STEP B: Capture the newly assigned auto-incremented primary key userID immediately
                         new_corporate_userid = cursor.lastrowid
                         conn.close()
                         
-                        # STEP C: Fire the PayPal Order Generation, passing your new userID as the custom_id mapping string
+                        # Trigger Order Generation
                         order_object = create_paypal_order(calculated_subtotal, corp_name, new_corporate_userid)
                         
-                        if not order_object:
-                            st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Verify your sandbox vs live matching keys inside the Streamlit Secrets pane.")
-                        else:
+                        if order_object:
                             paypal_order_id = order_object["id"]
                             approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
                             
@@ -185,6 +177,7 @@ if incoming_token:
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             cap_response = requests.post(capture_url, headers=headers, json={}, timeout=10)
+            
             if cap_response.status_code == 201 or cap_response.status_code == 200:
                 res_data = cap_response.json()
                 payment_status = res_data.get("status") 
@@ -192,7 +185,7 @@ if incoming_token:
                 if payment_status == "COMPLETED":
                     paypal_txn_id = res_data.get("id")
                     
-                    # Target explicit nested collection indices safely
+                    # 🟢 FIXED DATA ARRAYS DRILLING: Safely targets the array list indices to match PayPal V2 responses perfectly
                     purchase_unit = res_data["purchase_units"][0]
                     capture_object = purchase_unit["payments"]["captures"][0]
                     captured_amount = capture_object["amount"]["value"]
@@ -201,10 +194,10 @@ if incoming_token:
                     custom_subscription_id = purchase_unit.get("custom_id")
                     if not custom_subscription_id:
                         custom_subscription_id = st.session_state.get("pending_uid")
+                        
                     try:
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
-                            # PHP Step 1: Prevent duplicate processing for this txn_id row
                             cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_txn_id,))
                             dup_check = cursor.fetchone()
                             
@@ -213,7 +206,6 @@ if incoming_token:
                             else:
                                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 
-                                # PHP Step 2: Target the existing row records and flip to active
                                 sql_update_user = """
                                     UPDATE user 
                                     SET subscription_status = 'active', 
@@ -223,7 +215,6 @@ if incoming_token:
                                 """
                                 cursor.execute(sql_update_user, (current_ts, paypal_txn_id, int(custom_subscription_id)))
                                 
-                                # PHP Step 3: Insert transaction record string into auditing ledger
                                 sql_insert_txn = """
                                     INSERT INTO transactions 
                                     (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
@@ -246,8 +237,4 @@ if incoming_token:
                 else:
                     st.error(f"❌ Payment not completed. Status returned: {payment_status}")
             else:
-                st.error("❌ Failed to execute order capture command to PayPal endpoints.")
-    else:
-        st.warning("⚠️ No pending corporate order ID trace found in session state cache memory.")
-
-st.markdown("---")
+                st.error(f"❌ Failed to execute order capture command to PayPal endpoints. Status: {cap_response.status_code}")
