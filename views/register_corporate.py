@@ -63,7 +63,7 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
         "intent": "CAPTURE",
         "purchase_units": [{
             "description": f"CPMS Corporate Enterprise Activation - Organization: {company_name}",
-            "custom_id": str(target_instructor_uid), # Enforces mapping using your newly generated corporate userID
+            "custom_id": str(target_instructor_uid), 
             "amount": {"currency_code": "USD", "value": f"{price_amount:.2f}"}
         }],
         "application_context": {
@@ -83,10 +83,10 @@ st.markdown("---")
 
 current_system_mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().upper()
 if current_system_mode == "SANDBOX":
-    st.caption(f"🛡️ Active Gateway Network Status: **%s MODE ACTIVE**" % current_system_mode)
+    st.caption(f"🛡️ Active Gateway Network Status: **{current_system_mode} MODE ACTIVE**")
 else:
-    st.caption(f"🛡️ Active Gateway Network Status: **%s PRODUCTION MODE**" % current_system_mode)
-# 1. UI Information Processing Fields Layer (Includes First Name, Last Name, and Corporate Contexts)
+    st.caption(f"🛡️ Active Gateway Network Status: **{current_system_mode} PRODUCTION MODE**")
+# 1. UI Information Processing Fields Layer (Aligned perfectly with your custom user table fields)
 with st.form("corporate_registration_details_form"):
     col_n1, col_n2 = st.columns(2)
     with col_n1:
@@ -113,22 +113,25 @@ if checkout_submit_btn:
                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
                 with conn.cursor() as cursor:
-                    # STEP A: Create the user row FIRST with acct_type='corporate' and status='pending'
-                    # Concatenating first and last name for storage matching your name field paradigms
-                    full_name_string = f"{first_name.strip()} {last_name.strip()}"
-                    
+                    # STEP A: Matches your absolute column field names layout: fname, lname, corp_name, dateCreated, acct_type, subscription_status
                     sql_create_pending_user = """
-                        INSERT INTO user (name, email, acct_type, subscription_status, created_at) 
-                        VALUES (%s, %s, 'corporate', 'pending', %s)
+                        INSERT INTO user (fname, lname, corp_name, email, acct_type, subscription_status, dateCreated) 
+                        VALUES (%s, %s, %s, %s, 'corporate', 'pending', %s)
                     """
-                    cursor.execute(sql_create_pending_user, (full_name_string, corp_email.strip(), current_ts))
+                    cursor.execute(sql_create_pending_user, (
+                        first_name.strip(), 
+                        last_name.strip(), 
+                        corp_name.strip(), 
+                        corp_email.strip(), 
+                        current_ts
+                    ))
                     
                     # STEP B: Capture the newly assigned auto-incremented primary key userID immediately
                     new_corporate_userid = cursor.lastrowid
                     
                 conn.close()
                 
-                # STEP C: Fire the PayPal Order Generation, passing your new userID as the custom_id mapping
+                # STEP C: Fire the PayPal Order Generation, passing your new userID as the custom_id mapping string
                 order_object = create_paypal_order(calculated_subtotal, corp_name, new_corporate_userid)
                 
                 if not order_object:
@@ -137,7 +140,6 @@ if checkout_submit_btn:
                     paypal_order_id = order_object["id"]
                     approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
                     
-                    # Cache user parameters safely inside temporary session memory buffers
                     st.session_state["pending_corp_order_id"] = paypal_order_id
                     st.session_state["pending_corp_name"] = corp_name
                     st.session_state["pending_uid"] = new_corporate_userid
@@ -181,7 +183,6 @@ if incoming_token:
                     captured_amount = capture_object["amount"]["value"]
                     captured_currency = capture_object["amount"]["currency_code"]
                     
-                    # Retrieve the custom_id returned straight from PayPal's secure response payload
                     custom_subscription_id = purchase_unit.get("custom_id")
                     if not custom_subscription_id:
                         custom_subscription_id = st.session_state.get("pending_uid")
@@ -199,6 +200,7 @@ if incoming_token:
                                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 
                                 # PHP Step 2: Target the existing record via custom_id and flip status to active
+                                # Corrected to save values directly into your 'subscription_status', 'last_payment_date', and 'paypal_order_id' fields
                                 sql_update_user = """
                                     UPDATE user 
                                     SET subscription_status = 'active', 
