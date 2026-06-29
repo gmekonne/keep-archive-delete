@@ -4,7 +4,7 @@ import pymysql
 import datetime
 import json
 import hashlib
-from requests.auth import HTTPBasicAuth
+import base64
 
 def get_mysql_connection():
     """Fresh uncached real-time link straight to Hostinger."""
@@ -19,51 +19,62 @@ def get_mysql_connection():
     )
 
 def get_paypal_access_token():
-    """Generates an ephemeral bearer access token using direct data credentials payload mapping."""
+    """Generates an ephemeral bearer access token using mandatory HTTP Basic Auth Headers."""
     if "paypal" not in st.secrets:
-        st.error("🔑 Configuration Error: The '[paypal]' block header is missing from your secrets manager window panel.")
+        st.error("🔑 Configuration Error: The '[paypal]' block header is completely missing from your secrets manager window panel.")
         return None, None
         
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     
-    if mode == "sandbox":
-        client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip()
-        client_secret = str(st.secrets["paypal"]["sandbox_client_secret"]).strip()
-        base_url = "https://paypal.com"
-    else:
-        client_id = str(st.secrets["paypal"]["live_client_id"]).strip()
-        client_secret = str(st.secrets["paypal"]["live_client_secret"]).strip()
-        base_url = "https://paypal.com"
+    # 🟢 SECURE FALLBACK ASSIGNMENT: Explicitly targets your secrets variables
+    try:
+        if mode == "sandbox":
+            client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip()
+            client_secret = str(st.secrets["paypal"]["sandbox_client_secret"]).strip()
+            base_url = "https://paypal.com"
+        else:
+            client_id = str(st.secrets["paypal"]["live_client_id"]).strip()
+            client_secret = str(st.secrets["paypal"]["live_client_secret"]).strip()
+            base_url = "https://paypal.com"
+    except KeyError as missing_key:
+        st.error(f"❌ Configuration Error: Missing the key {missing_key} under the [paypal] header inside your Streamlit Secrets panel.")
+        return None, None
         
     token_url = f"{base_url}/v1/oauth2/token"
     
-    # 🟢 FIXED: Swapped basic auth header with direct, flat payload structures to stop 401 rejections
+    # 🟢 FIXED MANDATORY AUTH ENCODING: Encodes client_id:client_secret into standard base64 headers
+    raw_auth_str = f"{client_id}:{client_secret}"
+    encoded_auth_bytes = base64.b64encode(raw_auth_str.encode("utf-8"))
+    encoded_auth_str = encoded_auth_bytes.decode("utf-8")
+    
     headers = {
+        "Authorization": f"Base {encoded_auth_str}",
         "Accept": "application/json",
-        "Accept-Language": "en_US",
         "Content-Type": "application/x-www-form-urlencoded"
     }
     
-    # Explicitly pass credentials as raw form dictionary items straight to the server
-    payload = {
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret
-    }
+    payload = {"grant_type": "client_credentials"}
     
     try:
-        # Firing standard direct network data request post tracking streams
         response = requests.post(token_url, headers=headers, data=payload, timeout=10)
         
+        # Explicitly check for exact token matching returns
         if response.status_code == 200:
             return response.json().get("access_token"), base_url
         else:
-            st.error(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Details: {response.text[:120]}")
+            # 🟢 DIAGNOSTIC PANEL: Prints the variables state to help you spot typos on your screen instantly
+            st.error(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Details: {response.text}")
+            with st.expander("🔍 Click to Run Credentials Diagnostic Audit", expanded=True):
+                st.write(f"**Target System Mode:** `{mode.upper()}`")
+                st.write(f"**Loaded Client ID String Length:** {len(client_id)} characters")
+                st.write(f"**Loaded Secret Key String Length:** {len(client_secret)} characters")
+                st.write(f"**First 5 Characters of Client ID:** `{client_id[:5]}`")
+                st.write(f"**First 5 Characters of Secret Key:** `{client_secret[:5]}`")
+                st.info("💡 *Tip: Ensure the character lengths and starting prefixes exactly match what displays on your PayPal Developer application canvas panel.*")
             return None, None
     except Exception as e:
-        st.toast(f"🔌 Connection Exception: {e}", icon="⚠️")
+        st.error(f"🔌 Network Timeout Exception: {e}")
         return None, None
-
 
 def create_paypal_order(price_amount, company_name, target_instructor_uid):
     """Outbound payload setup: Spawns the order and binds custom_id exactly like your PHP file."""
@@ -91,7 +102,6 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
     if response.status_code == 201 or response.status_code == 200:
         return response.json()
     else:
-        # 🟢 DIAGNOSTIC HIGHLIGHT: Alerts you to the exact raw error string if PayPal throws a payload error
         st.error(f"⚠️ PayPal Order API Refused ({response.status_code}): {response.text}")
         return None
 
@@ -199,9 +209,8 @@ if incoming_token:
                 if payment_status == "COMPLETED":
                     paypal_txn_id = res_data.get("id")
                     
-                    # 🟢 FIXED DATA ARRAYS DRILLING: Safely targets the array list indices to match PayPal V2 responses perfectly
-                    purchase_unit = res_data["purchase_units"][0]
-                    capture_object = purchase_unit["payments"]["captures"][0]
+                    purchase_unit = res_data["purchase_units"]
+                    capture_object = purchase_unit["payments"]["captures"]
                     captured_amount = capture_object["amount"]["value"]
                     captured_currency = capture_object["amount"]["currency_code"]
                     
