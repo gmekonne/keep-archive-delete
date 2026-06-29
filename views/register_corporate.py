@@ -20,7 +20,7 @@ def get_mysql_connection():
 def get_paypal_access_token():
     """Generates an ephemeral bearer access token, dynamically selecting sandbox or live keys."""
     if "paypal" not in st.secrets:
-        st.error("🔑 Configuration Error: The '[paypal]' block header is completely missing from your secrets manager window panel.")
+        st.error("🔑 Configuration Error: The '[paypal]' block header is missing from your secrets panel.")
         return None, None
         
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
@@ -44,7 +44,7 @@ def get_paypal_access_token():
         if response.status_code == 200:
             return response.json().get("access_token"), base_url
         else:
-            st.toast(f"🔒 PayPal OAuth Refused: Status {response.status_code}. Response: {response.text[:80]}", icon="❌")
+            st.toast(f"🔒 PayPal OAuth Refused: Status {response.status_code}.", icon="❌")
             return None, None
     except Exception as e:
         st.toast(f"🔌 Connection Exception: {e}", icon="⚠️")
@@ -63,7 +63,7 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
         "intent": "CAPTURE",
         "purchase_units": [{
             "description": f"CPMS Corporate Enterprise Activation - Organization: {company_name}",
-            "custom_id": str(target_instructor_uid), 
+            "custom_id": str(target_instructor_uid), # Enforces mapping using your newly generated corporate userID
             "amount": {"currency_code": "USD", "value": f"{price_amount:.2f}"}
         }],
         "application_context": {
@@ -78,16 +78,22 @@ def create_paypal_order(price_amount, company_name, target_instructor_uid):
     return None
 
 st.title("🏢 Corporate & Institutional Portal Registration")
-st.write("Register your educational organization, submit purchase requests, and deploy system access tokens via PayPal checkout.")
+st.write("Register your educational organization, log account variables, and complete purchase orders via PayPal checkout portals.")
 st.markdown("---")
 
 current_system_mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().upper()
 if current_system_mode == "SANDBOX":
-    st.caption(f"🛡️ Active Gateway Network Status: **🟢 {current_system_mode} MODE ACTIVE** (Simulated Billing)")
+    st.caption(f"🛡️ Active Gateway Network Status: **%s MODE ACTIVE**" % current_system_mode)
 else:
-    st.caption(f"🛡️ Active Gateway Network Status: **🚨 {current_system_mode} PRODUCTION MODE** (Real-World Processing)")
-# 1. UI Information Processing Fields Layer
+    st.caption(f"🛡️ Active Gateway Network Status: **%s PRODUCTION MODE**" % current_system_mode)
+# 1. UI Information Processing Fields Layer (Includes First Name, Last Name, and Corporate Contexts)
 with st.form("corporate_registration_details_form"):
+    col_n1, col_n2 = st.columns(2)
+    with col_n1:
+        first_name = st.text_input("First Name *", placeholder="e.g., John")
+    with col_n2:
+        last_name = st.text_input("Last Name *", placeholder="e.g., Smith")
+        
     corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University")
     corp_email = st.text_input("Administrative Account Email *", placeholder="admin@domain.com")
     corp_seats = st.number_input("Target Seat Allocations (Total Instructor Accounts)", min_value=5, max_value=500, value=25, step=5)
@@ -98,26 +104,49 @@ with st.form("corporate_registration_details_form"):
     checkout_submit_btn = st.form_submit_button("💳 Initialize Secure PayPal Corporate Checkout", use_container_width=True)
 
 if checkout_submit_btn:
-    if not corp_name or not corp_email:
+    if not first_name or not last_name or not corp_name or not corp_email:
         st.error("All starred fields are required to process your organization registration profile.")
     else:
-        with st.spinner("Connecting to PayPal payment gateway servers..."):
-            mock_target_uid = st.session_state.get("user_id", 1) 
-            
-            order_object = create_paypal_order(calculated_subtotal, corp_name, mock_target_uid)
-            
-            if not order_object:
-                st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Please verify your sandbox vs live matching keys inside the Streamlit Secrets manager window pane panel.")
-            else:
-                paypal_order_id = order_object["id"]
-                approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
+        with st.spinner("Writing pending account data and connecting to PayPal..."):
+            try:
+                conn = get_mysql_connection()
+                current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
-                st.session_state["pending_corp_order_id"] = paypal_order_id
-                st.session_state["pending_corp_name"] = corp_name
-                st.session_state["pending_uid"] = mock_target_uid
+                with conn.cursor() as cursor:
+                    # STEP A: Create the user row FIRST with acct_type='corporate' and status='pending'
+                    # Concatenating first and last name for storage matching your name field paradigms
+                    full_name_string = f"{first_name.strip()} {last_name.strip()}"
+                    
+                    sql_create_pending_user = """
+                        INSERT INTO user (name, email, acct_type, subscription_status, created_at) 
+                        VALUES (%s, %s, 'corporate', 'pending', %s)
+                    """
+                    cursor.execute(sql_create_pending_user, (full_name_string, corp_email.strip(), current_ts))
+                    
+                    # STEP B: Capture the newly assigned auto-incremented primary key userID immediately
+                    new_corporate_userid = cursor.lastrowid
+                    
+                conn.close()
                 
-                st.success("🎉 Purchase Order spawned successfully! Please click the authorization button below to finalize your transaction.")
-                st.link_button("🚀 Proceed to PayPal Secure Payment Portal", url=approve_link, use_container_width=True)
+                # STEP C: Fire the PayPal Order Generation, passing your new userID as the custom_id mapping
+                order_object = create_paypal_order(calculated_subtotal, corp_name, new_corporate_userid)
+                
+                if not order_object:
+                    st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Verify your sandbox vs live matching keys inside the Streamlit Secrets pane.")
+                else:
+                    paypal_order_id = order_object["id"]
+                    approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
+                    
+                    # Cache user parameters safely inside temporary session memory buffers
+                    st.session_state["pending_corp_order_id"] = paypal_order_id
+                    st.session_state["pending_corp_name"] = corp_name
+                    st.session_state["pending_uid"] = new_corporate_userid
+                    st.session_state["pending_subtotal"] = calculated_subtotal
+                    
+                    st.success(f"🎉 Pending account created with **User ID {new_corporate_userid}**! Please finalize payment below.")
+                    st.link_button("🚀 Proceed to PayPal Secure Payment Portal", url=approve_link, use_container_width=True)
+            except Exception as e:
+                st.error(f"Failed to record pending infrastructure account details: {e}")
 
 st.markdown("---")
 
@@ -152,13 +181,15 @@ if incoming_token:
                     captured_amount = capture_object["amount"]["value"]
                     captured_currency = capture_object["amount"]["currency_code"]
                     
+                    # Retrieve the custom_id returned straight from PayPal's secure response payload
                     custom_subscription_id = purchase_unit.get("custom_id")
                     if not custom_subscription_id:
-                        custom_subscription_id = st.session_state.get("pending_uid", 1)
+                        custom_subscription_id = st.session_state.get("pending_uid")
                         
                     try:
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
+                            # PHP Step 1: Prevent duplicate processing for this txn_id
                             cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_txn_id,))
                             dup_check = cursor.fetchone()
                             
@@ -167,6 +198,7 @@ if incoming_token:
                             else:
                                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 
+                                # PHP Step 2: Target the existing record via custom_id and flip status to active
                                 sql_update_user = """
                                     UPDATE user 
                                     SET subscription_status = 'active', 
@@ -176,6 +208,7 @@ if incoming_token:
                                 """
                                 cursor.execute(sql_update_user, (current_ts, paypal_txn_id, int(custom_subscription_id)))
                                 
+                                # PHP Step 3: Insert transaction auditing ledger record
                                 sql_insert_txn = """
                                     INSERT INTO transactions 
                                     (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
@@ -187,7 +220,7 @@ if incoming_token:
                                     captured_currency, payment_status, transaction_data_json, current_ts
                                 ))
                                 
-                                st.success(f"🎉 **Payment Captured Successfully!** System access activated for user ID {custom_subscription_id}.")
+                                st.success(f"🎉 **Payment Captured Successfully!** System access activated for corporate user ID {custom_subscription_id}.")
                                 st.balloons()
                                 
                         conn.close()
