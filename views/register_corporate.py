@@ -87,7 +87,7 @@ if current_system_mode == "SANDBOX":
     st.caption(f"🛡️ Active Gateway Network Status: **{current_system_mode} MODE ACTIVE**")
 else:
     st.caption(f"🛡️ Active Gateway Network Status: **{current_system_mode} PRODUCTION MODE**")
-# 1. UI Information Processing Fields Layer (Includes a secure password hashing text entry row)
+# 1. UI Information Processing Fields Layer (Includes First Name, Last Name, and Corporate Contexts)
 with st.form("corporate_registration_details_form"):
     col_n1, col_n2 = st.columns(2)
     with col_n1:
@@ -97,10 +97,7 @@ with st.form("corporate_registration_details_form"):
         
     corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University")
     corp_email = st.text_input("Administrative Account Email *", placeholder="admin@domain.com")
-    
-    # 🟢 NEW SELECTION: Added secure hidden text widget password element
     corp_password = st.text_input("Create Portal Access Password *", type="password", placeholder="Choose a strong password string")
-    
     corp_seats = st.number_input("Target Seat Allocations (Total Instructor Accounts)", min_value=5, max_value=500, value=25, step=5)
     
     calculated_subtotal = float(corp_seats * 10.0)
@@ -112,51 +109,59 @@ if checkout_submit_btn:
     if not first_name or not last_name or not corp_name or not corp_email or not corp_password:
         st.error("All starred fields are required to process your organization registration profile.")
     else:
-        with st.spinner("Writing encrypted pending account data and connecting to PayPal..."):
+        with st.spinner("Checking database for duplicates and connecting to PayPal..."):
             try:
-                # 🟢 SECURITY COMPONENT: Compute SHA-256 password hash natively to match your personal file rules
-                hashed_password_string = hashlib.sha256(corp_password.strip().encode('utf-8')).hexdigest()
-                
                 conn = get_mysql_connection()
-                current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                target_email_clean = corp_email.strip().lower()
                 
                 with conn.cursor() as cursor:
-                    # STEP A: Create the user row FIRST with hashed password parameters
-                    sql_create_pending_user = """
-                        INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role) 
-                        VALUES (%s, %s, %s, %s, %s, 'corporate', 'pending', %s, 'instructor', 'instructor')
-                    """
-                    cursor.execute(sql_create_pending_user, (
-                        first_name.strip(), 
-                        last_name.strip(), 
-                        corp_name.strip(), 
-                        corp_email.strip(), 
-                        hashed_password_string, 
-                        current_ts
-                    ))
+                    # 🟢 NEW PRE-FLIGHT CHECK: Look for duplicate emails inside your user ledger records
+                    cursor.execute("SELECT userID FROM user WHERE LOWER(email) = %s", (target_email_clean,))
+                    duplicate_user_found = cursor.fetchone()
                     
-                    # STEP B: Capture the newly assigned auto-incremented primary key userID immediately
-                    new_corporate_userid = cursor.lastrowid
-                    
-                conn.close()
-                
-                # STEP C: Fire the PayPal Order Generation, passing your new userID as the custom_id mapping string
-                order_object = create_paypal_order(calculated_subtotal, corp_name, new_corporate_userid)
-                
-                if not order_object:
-                    st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Verify your sandbox vs live matching keys inside the Streamlit Secrets pane.")
-                else:
-                    paypal_order_id = order_object["id"]
-                    approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
-                    
-                    # Cache user parameters safely inside temporary session memory buffers
-                    st.session_state["pending_corp_order_id"] = paypal_order_id
-                    st.session_state["pending_corp_name"] = corp_name
-                    st.session_state["pending_uid"] = new_corporate_userid
-                    st.session_state["pending_subtotal"] = calculated_subtotal
-                    
-                    st.success(f"🎉 Pending account created with **User ID {new_corporate_userid}**! Please finalize payment below.")
-                    st.link_button("🚀 Proceed to PayPal Secure Payment Portal", url=approve_link, use_container_width=True)
+                    if duplicate_user_found:
+                        st.error(f"⚠️ Account Creation Restricted: The administrative email address **'{target_email_clean}'** is already registered inside our system database records.")
+                        st.info("💡 **Next Step:** If you already have an account, please use the **🔑 Instructor Sign In** panel option from the top of the sidebar navigation menu.")
+                        conn.close()
+                    else:
+                        # Compute SHA-256 password hash natively to match your personal file rules
+                        hashed_password_string = hashlib.sha256(corp_password.strip().encode('utf-8')).hexdigest()
+                        current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        # STEP A: Create the user row FIRST with hashed password parameters
+                        sql_create_pending_user = """
+                            INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role) 
+                            VALUES (%s, %s, %s, %s, %s, 'corporate', 'pending', %s, 'instructor', 'instructor')
+                        """
+                        cursor.execute(sql_create_pending_user, (
+                            first_name.strip(), 
+                            last_name.strip(), 
+                            corp_name.strip(), 
+                            target_email_clean, 
+                            hashed_password_string, 
+                            current_ts
+                        ))
+                        
+                        # STEP B: Capture the newly assigned auto-incremented primary key userID immediately
+                        new_corporate_userid = cursor.lastrowid
+                        conn.close()
+                        
+                        # STEP C: Fire the PayPal Order Generation, passing your new userID as the custom_id mapping string
+                        order_object = create_paypal_order(calculated_subtotal, corp_name, new_corporate_userid)
+                        
+                        if not order_object:
+                            st.error("❌ Gateway Connection Error: PayPal rejected the purchase request. Verify your sandbox vs live matching keys inside the Streamlit Secrets pane.")
+                        else:
+                            paypal_order_id = order_object["id"]
+                            approve_link = next(link["href"] for link in order_object["links"] if link["rel"] == "approve")
+                            
+                            st.session_state["pending_corp_order_id"] = paypal_order_id
+                            st.session_state["pending_corp_name"] = corp_name
+                            st.session_state["pending_uid"] = new_corporate_userid
+                            st.session_state["pending_subtotal"] = calculated_subtotal
+                            
+                            st.success(f"🎉 Pending account created with **User ID {new_corporate_userid}**! Please finalize payment below.")
+                            st.link_button("🚀 Proceed to PayPal Secure Payment Portal", url=approve_link, use_container_width=True)
             except Exception as e:
                 st.error(f"Failed to record pending infrastructure account details: {e}")
 
@@ -180,7 +185,6 @@ if incoming_token:
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             
             cap_response = requests.post(capture_url, headers=headers, json={}, timeout=10)
-            
             if cap_response.status_code == 201 or cap_response.status_code == 200:
                 res_data = cap_response.json()
                 payment_status = res_data.get("status") 
@@ -188,19 +192,19 @@ if incoming_token:
                 if payment_status == "COMPLETED":
                     paypal_txn_id = res_data.get("id")
                     
-                    purchase_unit = res_data["purchase_units"]
-                    capture_object = purchase_unit["payments"]["captures"]
+                    # Target explicit nested collection indices safely
+                    purchase_unit = res_data["purchase_units"][0]
+                    capture_object = purchase_unit["payments"]["captures"][0]
                     captured_amount = capture_object["amount"]["value"]
                     captured_currency = capture_object["amount"]["currency_code"]
                     
                     custom_subscription_id = purchase_unit.get("custom_id")
                     if not custom_subscription_id:
                         custom_subscription_id = st.session_state.get("pending_uid")
-                        
                     try:
                         conn = get_mysql_connection()
                         with conn.cursor() as cursor:
-                            # PHP Step 1: Prevent duplicate processing for this txn_id
+                            # PHP Step 1: Prevent duplicate processing for this txn_id row
                             cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_txn_id,))
                             dup_check = cursor.fetchone()
                             
@@ -209,7 +213,7 @@ if incoming_token:
                             else:
                                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 
-                                # PHP Step 2: Target the existing record via custom_id and flip status to active
+                                # PHP Step 2: Target the existing row records and flip to active
                                 sql_update_user = """
                                     UPDATE user 
                                     SET subscription_status = 'active', 
@@ -219,7 +223,7 @@ if incoming_token:
                                 """
                                 cursor.execute(sql_update_user, (current_ts, paypal_txn_id, int(custom_subscription_id)))
                                 
-                                # PHP Step 3: Insert transaction auditing ledger record
+                                # PHP Step 3: Insert transaction record string into auditing ledger
                                 sql_insert_txn = """
                                     INSERT INTO transactions 
                                     (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
@@ -231,7 +235,7 @@ if incoming_token:
                                     captured_currency, payment_status, transaction_data_json, current_ts
                                 ))
                                 
-                                st.success(f"🎉 **Payment Captured Successfully!** System access activated for corporate user ID {custom_subscription_id}.")
+                                st.success(f"🎉 **Payment Captured Successfully!** Access tokens deployed for corporate user ID {custom_subscription_id}.")
                                 st.balloons()
                                 
                         conn.close()
