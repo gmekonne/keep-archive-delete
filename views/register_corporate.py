@@ -25,7 +25,7 @@ st.title("🏢 Corporate & Institutional Portal Registration")
 st.write("Register your educational organization and process your enterprise purchase order using the live secure PayPal interface buttons below.")
 st.markdown("---")
 
-# Intercept standard incoming payment URL parameters from the browser address bar
+# Intercept incoming payment parameters straight from the browser address bar query strings
 url_params = st.query_params
 is_paid_signal = url_params.get("corp_paid")
 
@@ -34,7 +34,7 @@ if "corp_form_validated" not in st.session_state:
 
 # =====================================================================
 # SECTION 2: THE REGISTRATION FORM (STEP 1)
-# What it does: Captures text data and runs pre-flight duplicate scans on submit.
+# What it does: Captures all text data and runs pre-flight duplicate scans on submit.
 # =====================================================================
 st.markdown("##### 📝 Step 1: Administrative Account Specifications")
 
@@ -81,7 +81,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL BUTTON ENGINE (STEP 2)
-# What it does: Mounts buttons inside an iframe. Redirects parent page on payment.
+# What it does: Mounts buttons inside an iframe. Uses standard string concatenation 
+# to completely bypass the python curly-brace f-string parsing crash.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -101,45 +102,46 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Construct the raw HTML/JS code template
-    # 🟢 UPGRADE: Standard window.parent.location update forces a clean browser redirect instead of background polling!
-    paypal_smart_buttons_html = f"""<!DOCTYPE html>
+    # 🟢 FIXED: Using a standard raw string to prevent curly brace template conversion drops completely
+    html_start = """<!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://paypal.com{paypal_client_id}&currency=USD"></script>
-        <style>body {{ font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }}</style>
+        <script src="https://paypal.com""" + paypal_client_id + """&currency=USD"></script>
+        <style>
+            body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
+            #paypal-button-container { max-width: 100%; margin-top: 5px; }
+        </style>
     </head>
     <body>
         <div id="paypal-button-container"></div>
         <script>
-            paypal.Buttons({{
-                createOrder: function(data, actions) {{
-                    return actions.order.create({{
-                        purchase_units: [{{
-                            description: "CPMS Enterprise Activation: {c_name}",
-                            amount: {{ currency_code: "USD", value: "{calculated_subtotal:.2f}" }}
-                        }}]
-                    }});
-                }},
-                onApprove: function(data, actions) {{
-                    return actions.order.capture().then(function(details) {{
+            paypal.Buttons({
+                createOrder: function(data, actions) {
+                    return actions.order.create({
+                        purchase_units: [{
+                            description: "CPMS Enterprise Activation: """ + c_name + """",
+                            amount: { currency_code: "USD", value: \"""" + f"{calculated_subtotal:.2f}" + """\" }
+                        }]
+                    });
+                },
+                onApprove: function(data, actions) {
+                    return actions.order.capture().then(function(details) {
                         var orderID = details.id;
                         var amt = details.purchase_units[0].payments.captures[0].amount.value;
                         var cur = details.purchase_units[0].payments.captures[0].amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        // Redirect parent page cleanly with parameters back to your registration track
                         window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
-                    }});
-                }}
-            }}).render('#paypal-button-container');
+                    });
+                }
+            }).render('#paypal-button-container');
         </script>
     </body>
     </html>"""
     
-    safe_encoded_src_url = "data:text/html;charset=utf-8," + urllib.parse.quote(paypal_smart_buttons_html)
-    st.iframe(src=safe_encoded_src_url, height=320)
+    safe_encoded_src_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_start)
+    st.iframe(src=safe_encoded_src_url, height=350)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
@@ -154,7 +156,6 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
     
     st.info("⚡ Transaction validated by PayPal. Completing database synchronization loops...")
     
-    # Read the data back from our cached variables holding user parameters
     c_fname = st.session_state.get("cached_fname", "Corporate")
     c_lname = st.session_state.get("cached_lname", "User")
     c_name = st.session_state.get("cached_org", "University")
@@ -167,7 +168,6 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
             
             with get_mysql_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Enforce the double-processing safety shield block transaction check
                     cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_order_id,))
                     dup_check = cursor.fetchone()
                     
@@ -176,7 +176,6 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                     else:
                         hashed_password_string = hashlib.sha256(c_pass.encode('utf-8')).hexdigest()
                         
-                        # Write Step 1: Create the User Account setting active parameters
                         sql_insert_user = """
                             INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role, paypal_order_id, last_payment_date) 
                             VALUES (%s, %s, %s, %s, %s, 'corporate', 'active', %s, 'instructor', 'instructor', %s, %s)
@@ -188,7 +187,6 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                         
                         new_corporate_userid = cursor.lastrowid
                         
-                        # Write Step 2: Create the transaction auditing row log record entry
                         sql_insert_txn = """
                             INSERT INTO transactions 
                             (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
@@ -202,7 +200,6 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                         st.success(f"🎉 **Corporate Profile Deployed Successfully!** Account created with User ID **{new_corporate_userid}**.")
                         st.balloons()
                         
-            # Reset validation flags cleanly and clear the URL parameters string
             st.session_state["corp_form_validated"] = False
             st.query_params.clear()
         except Exception as db_err:
