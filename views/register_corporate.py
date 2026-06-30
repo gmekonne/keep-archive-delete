@@ -77,7 +77,7 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL BUTTON ENGINE & PROCESSOR (STEP 2)
-# What it does: Mounts the visual smart buttons inside st.iframe using data URLs.
+# What it does: Mounts the visual smart buttons safely without causing keyword argument errors.
 # =====================================================================
 if st.session_state["corp_form_validated"]:
     st.markdown("---")
@@ -109,8 +109,8 @@ if st.session_state["corp_form_validated"]:
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <script src="https://paypal.com{paypal_client_id}&currency=USD"></script>
         <style>
-            body {{ font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 10px; }}
-            #paypal-button-container {{ max-width: 100%; margin-top: 10px; }}
+            body {{ font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }}
+            #paypal-button-container {{ max-width: 100%; margin-top: 5px; }}
         </style>
     </head>
     <body>
@@ -127,7 +127,6 @@ if st.session_state["corp_form_validated"]:
                 }},
                 onApprove: function(data, actions) {{
                     return actions.order.capture().then(function(details) {{
-                        // 🟢 FIXED OBJECT EXPLORATION: Target absolute first list array index positions
                         var capture = details.purchase_units[0].payments.captures[0];
                         window.parent.postMessage({{
                             type: 'streamlit:paypal_success',
@@ -147,11 +146,10 @@ if st.session_state["corp_form_validated"]:
     </body>
     </html>"""
     
-    # 🟢 FIXED ELEMENT: Replaced deprecated 'st.components.v1.html' with native modern 'st.iframe' component call module
+    # 🟢 FIXED ELEMENT: Uses pure st.iframe with only native parameters to avoid parameter crashes
     st.iframe(
         src=f"data:text/html;charset=utf-8,{paypal_smart_buttons_html}",
-        height=320,
-        scrolling=False
+        height=320
     )
 
     # --- SECTION 4: THE BACKGROUND PAYLOAD INTERCEPTOR LOOP ---
@@ -170,7 +168,7 @@ if st.session_state["corp_form_validated"]:
     })()
     """
 
-    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v5")
+    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v6")
 
     if paypal_event_payload:
         paypal_order_id = paypal_event_payload.get("orderID")
