@@ -107,7 +107,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <!-- 🟢 PERFORMANCE LOOKUP: Loaded directly from secure cloud origin nodes -->
         <script src="https://paypal.com""" + paypal_client_id + """&currency=USD"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
@@ -117,24 +116,23 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     <body>
         <div id="paypal-button-container"></div>
         <script>
-            // 🟢 INSTANT RENDER METHOD: Standard deployment callback hooks
             paypal.Buttons({
                 createOrder: function(data, actions) {
                     return actions.order.create({
                         purchase_units: [{
                             description: "CPMS Enterprise Activation: """ + c_name + """",
-                            amount: { currency_code: "USD", value: \"""" + f"{calculated_subtotal:.2f}" + \"\" }
+                            amount: { currency_code: "USD", value: """ + f'"{calculated_subtotal:.2f}"' + """ }
                         }]
                     });
                 },
                 onApprove: function(data, actions) {
                     return actions.order.capture().then(function(details) {
+                        var capture = details.purchase_units[0].payments.captures[0];
                         var orderID = details.id;
-                        var amt = details.purchase_units[0].payments.captures[0].amount.value;
-                        var cur = details.purchase_units[0].payments.captures[0].amount.currency_code;
+                        var amt = capture.amount.value;
+                        var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        // Force a clean parent browser navigation rewrite
                         window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
                     });
                 }
@@ -143,7 +141,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # 🟢 FIXED ELEMENT: Replaced broken 'st.iframe' with the professional sandboxed raw component runner
     components.html(html_layout_string, height=350, scrolling=False)
 
 # =====================================================================
