@@ -148,9 +148,10 @@ if st.session_state["corp_form_validated"]:
     </body>
     </html>"""
     
-    # 🟢 FIXED: Safely URL-encode the text string payload so browsers render the layout immediately
+    # 🟢 FIXED: URL-encode the string payload so modern web browsers parse it cleanly
     safe_encoded_src_url = "data:text/html;charset=utf-8," + urllib.parse.quote(paypal_smart_buttons_html)
     
+    # 🟢 FIXED ELEMENT: Removed the unexpected 'scrolling=' keyword argument parameter completely
     st.iframe(
         src=safe_encoded_src_url,
         height=320
@@ -172,7 +173,7 @@ if st.session_state["corp_form_validated"]:
     })()
     """
 
-    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v7")
+    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v8")
 
     if paypal_event_payload:
         paypal_order_id = paypal_event_payload.get("orderID")
