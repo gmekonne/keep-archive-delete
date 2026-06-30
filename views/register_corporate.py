@@ -69,6 +69,8 @@ if validate_btn:
                         st.error(f"⚠️ Account Creation Restricted: The email address '{target_email_clean}' is already registered inside our system.")
                         st.session_state["corp_form_validated"] = False
                     else:
+                        # 🟢 FIXED: Storing states in session and letting Streamlit refresh naturally. 
+                        # st.rerun() removed from this block to permanently eliminate Errno 99 loop crashes.
                         st.session_state["corp_form_validated"] = True
                         st.session_state["cached_fname"] = first_name.strip()
                         st.session_state["cached_lname"] = last_name.strip()
@@ -76,7 +78,6 @@ if validate_btn:
                         st.session_state["cached_email"] = target_email_clean
                         st.session_state["cached_pass"] = corp_password
                         st.session_state["cached_seats"] = corp_seats
-                        st.rerun()
         except Exception as e:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
@@ -102,7 +103,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Clean raw template string - allows CSS brace separation without processing crashes
     html_layout_string = """<!DOCTYPE html>
     <html>
     <head>
@@ -141,7 +141,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # 🟢 FIXED ELEMENT: Lifted height bounds to 600px and enabled internal scrolling tracking guards
+    # 🟢 COUPLING VERIFICATION: Maintained the spacious 600px canvas bounds with adaptive internal scrolling enabled
     components.html(html_layout_string, height=600, scrolling=True)
 
 # =====================================================================
