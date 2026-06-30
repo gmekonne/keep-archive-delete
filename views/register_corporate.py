@@ -81,8 +81,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Implements performance practices. Mounts buttons via 
-# official components wrapper to bypass security lockdowns.
+# What it does: Mounts buttons via components wrapper with the absolute 
+# exact CDN endpoint directory routing string path.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -107,7 +107,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://paypal.com""" + paypal_client_id + """&currency=USD"></script>
+        <!-- 🟢 FIXED DIRECTORY: Added the exact missing /sdk/js? route segment into the source call -->
+        <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
             #paypal-button-container { max-width: 100%; margin-top: 5px; }
@@ -127,7 +128,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                 },
                 onApprove: function(data, actions) {
                     return actions.order.capture().then(function(details) {
-                        var capture = details.purchase_units[0].payments.captures[0];
+                        var capture = details.purchase_units.payments.captures[0];
                         var orderID = details.id;
                         var amt = capture.amount.value;
                         var cur = capture.amount.currency_code;
