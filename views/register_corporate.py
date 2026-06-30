@@ -107,7 +107,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://paypal.com""" + paypal_client_id + """&currency=USD"></script>
+        <!-- 🟢 FIXED DIRECTORY: Added the exact missing /sdk/js? route segment into the source call -->
+        <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
             #paypal-button-container { max-width: 100%; margin-top: 5px; }
