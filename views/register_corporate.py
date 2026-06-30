@@ -3,6 +3,7 @@ import pymysql
 import datetime
 import hashlib
 import json
+import urllib.parse
 
 # =====================================================================
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
@@ -77,7 +78,7 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL BUTTON ENGINE & PROCESSOR (STEP 2)
-# What it does: Mounts the visual smart buttons safely without causing keyword argument errors.
+# What it does: URL-encodes the HTML content to render visual smart buttons successfully.
 # =====================================================================
 if st.session_state["corp_form_validated"]:
     st.markdown("---")
@@ -127,6 +128,7 @@ if st.session_state["corp_form_validated"]:
                 }},
                 onApprove: function(data, actions) {{
                     return actions.order.capture().then(function(details) {{
+                        // 🟢 FIXED OBJECT EXPLORATION: Target absolute first list array index positions
                         var capture = details.purchase_units[0].payments.captures[0];
                         window.parent.postMessage({{
                             type: 'streamlit:paypal_success',
@@ -146,9 +148,11 @@ if st.session_state["corp_form_validated"]:
     </body>
     </html>"""
     
-    # 🟢 FIXED ELEMENT: Uses pure st.iframe with only native parameters to avoid parameter crashes
+    # 🟢 FIXED: Safely URL-encode the text string payload so browsers render the layout immediately
+    safe_encoded_src_url = "data:text/html;charset=utf-8," + urllib.parse.quote(paypal_smart_buttons_html)
+    
     st.iframe(
-        src=f"data:text/html;charset=utf-8,{paypal_smart_buttons_html}",
+        src=safe_encoded_src_url,
         height=320
     )
 
@@ -168,7 +172,7 @@ if st.session_state["corp_form_validated"]:
     })()
     """
 
-    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v6")
+    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v7")
 
     if paypal_event_payload:
         paypal_order_id = paypal_event_payload.get("orderID")
