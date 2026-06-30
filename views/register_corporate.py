@@ -24,7 +24,6 @@ st.title("🏢 Corporate & Institutional Portal Registration")
 st.write("Register your educational organization and process your enterprise purchase order using the live secure PayPal interface buttons below.")
 st.markdown("---")
 
-# Initialize tracking flags inside stable state memory to manage our steps cleanly
 if "corp_form_validated" not in st.session_state:
     st.session_state["corp_form_validated"] = False
 
@@ -58,7 +57,6 @@ if validate_btn:
             target_email_clean = corp_email.strip().lower()
             
             with conn.cursor() as cursor:
-                # Run your explicit pre-flight check to block duplicate registration rows
                 cursor.execute("SELECT userID FROM user WHERE LOWER(email) = %s", (target_email_clean,))
                 duplicate_user_found = cursor.fetchone()
                 
@@ -66,7 +64,6 @@ if validate_btn:
                     st.error(f"⚠️ Account Creation Restricted: The email address '{target_email_clean}' is already registered inside our system.")
                     st.session_state["corp_form_validated"] = False
                 else:
-                    # Form details are verified and clear of duplicates! Cache variables into state memory safely
                     st.session_state["corp_form_validated"] = True
                     st.session_state["cached_fname"] = first_name.strip()
                     st.session_state["cached_lname"] = last_name.strip()
@@ -80,15 +77,13 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL BUTTON ENGINE & PROCESSOR (STEP 2)
-# What it does: Displays only after Step 1 is submitted. Mounts the visual 
-# yellow buttons and catches successful captures to write database rows.
+# What it does: Mounts the visual smart buttons inside st.iframe using data URLs.
 # =====================================================================
 if st.session_state["corp_form_validated"]:
     st.markdown("---")
     st.markdown("##### 💳 Step 2: Live Payment Processing Portal")
     st.success("🟢 Fields Validated successfully! Please complete your checkout selection below to instantly activate your corporate portal framework access codes.")
     
-    # Read our stable cached variables
     c_fname = st.session_state["cached_fname"]
     c_lname = st.session_state["cached_lname"]
     c_name = st.session_state["cached_org"]
@@ -99,7 +94,6 @@ if st.session_state["corp_form_validated"]:
     calculated_subtotal = float(c_seats * 10.0)
     st.info(f"🏅 **Enterprise Invoice Quote:** {c_seats} Teacher Accounts @ $10.00 each = **${calculated_subtotal:.2f} USD / Semester**")
 
-    # Read PayPal credentials securely from your configuration secrets panel
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     if mode == "sandbox":
         paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip()
@@ -108,9 +102,8 @@ if st.session_state["corp_form_validated"]:
         paypal_client_id = str(st.secrets["paypal"]["live_client_id"]).strip()
         st.caption("🛡️ Gateway Status: **🚨 LIVE PRODUCTION ENGAGED**")
 
-    # Construct the direct native HTML/JavaScript visual iframe snippet block
-    paypal_smart_buttons_html = f"""
-    <!DOCTYPE html>
+    # Construct clean raw source code block
+    paypal_smart_buttons_html = f"""<!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -134,12 +127,13 @@ if st.session_state["corp_form_validated"]:
                 }},
                 onApprove: function(data, actions) {{
                     return actions.order.capture().then(function(details) {{
-                        // Send the successful data object back to our Streamlit parent context framework loop
+                        // 🟢 FIXED OBJECT EXPLORATION: Target absolute first list array index positions
+                        var capture = details.purchase_units[0].payments.captures[0];
                         window.parent.postMessage({{
                             type: 'streamlit:paypal_success',
                             orderID: details.id,
-                            amount: details.purchase_units[0].payments.captures[0].amount.value,
-                            currency: details.purchase_units[0].payments.captures[0].amount.currency_code,
+                            amount: capture.amount.value,
+                            currency: capture.amount.currency_code,
                             status: details.status,
                             raw_json: JSON.stringify(details)
                         }}, '*');
@@ -151,9 +145,14 @@ if st.session_state["corp_form_validated"]:
             }}).render('#paypal-button-container');
         </script>
     </body>
-    </html>
-    """
-    st.components.v1.html(paypal_smart_buttons_html, height=280, scrolling=False)
+    </html>"""
+    
+    # 🟢 FIXED ELEMENT: Replaced deprecated 'st.components.v1.html' with native modern 'st.iframe' component call module
+    st.iframe(
+        src=f"data:text/html;charset=utf-8,{paypal_smart_buttons_html}",
+        height=320,
+        scrolling=False
+    )
 
     # --- SECTION 4: THE BACKGROUND PAYLOAD INTERCEPTOR LOOP ---
     from streamlit_js_eval import streamlit_js_eval
@@ -171,7 +170,7 @@ if st.session_state["corp_form_validated"]:
     })()
     """
 
-    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v4")
+    paypal_event_payload = streamlit_js_eval(js_script=js_listener_script, key="paypal_bridge_listener_loop_v5")
 
     if paypal_event_payload:
         paypal_order_id = paypal_event_payload.get("orderID")
@@ -188,7 +187,6 @@ if st.session_state["corp_form_validated"]:
                 current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 
                 with conn.cursor() as cursor:
-                    # Enforce the double-processing safety shield block transaction check
                     cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_order_id,))
                     dup_check = cursor.fetchone()
                     
@@ -197,7 +195,6 @@ if st.session_state["corp_form_validated"]:
                     else:
                         hashed_password_string = hashlib.sha256(c_pass.encode('utf-8')).hexdigest()
                         
-                        # Write Step 1: Create the User Account setting active parameters
                         sql_insert_user = """
                             INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role, paypal_order_id, last_payment_date) 
                             VALUES (%s, %s, %s, %s, %s, 'corporate', 'active', %s, 'instructor', 'instructor', %s, %s)
@@ -209,7 +206,6 @@ if st.session_state["corp_form_validated"]:
                         
                         new_corporate_userid = cursor.lastrowid
                         
-                        # Write Step 2: Create the transaction auditing row log record entry
                         sql_insert_txn = """
                             INSERT INTO transactions 
                             (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
@@ -222,10 +218,9 @@ if st.session_state["corp_form_validated"]:
                         
                         st.success(f"🎉 **Corporate Profile Deployed Successfully!** Account created with User ID **{new_corporate_userid}**.")
                         st.balloons()
-                        
-                        # Reset tracking memory flags to wrap up cleanly
                         st.session_state["corp_form_validated"] = False
                 conn.close()
+                st.rerun()
             except Exception as db_err:
                 st.error(f"❌ Database Transaction Synchronization Failure: {db_err}")
 st.markdown("---")
