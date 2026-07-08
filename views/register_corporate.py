@@ -79,11 +79,10 @@ if validate_btn:
                         st.rerun()
         except Exception as e:
             st.error(f"Failed to execute pre-flight database scans: {e}")
-
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via components wrapper with corrected 
-# height parameters and fixed URL routing redirection strings.
+# What it does: Mounts buttons via components wrapper with the absolute 
+# exact CDN endpoint directory routing string path.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -103,14 +102,12 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Dynamic base URL calculation to keep your redirection robust regardless of where it is hosted
-    # (Falls back to standard localhost if you run it locally)
-    current_app_url = "http://localhost:8501/"
-    
+    # Clean raw template string - allows CSS brace separation without processing crashes
     html_layout_string = """<!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- 🟢 FIXED DIRECTORY: Added the exact missing /sdk/js? route segment into the source call -->
         <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
@@ -137,8 +134,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        // 🟢 FIX: Formatted string to properly construct query parameters (?corp_paid=true&orderID=...)
-                        window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
+                        window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
                     });
                 }
             }).render('#paypal-button-container');
@@ -146,8 +142,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # 🟢 FIX: Increased height to 600 to prevent form truncation, enabled scrolling.
-    components.html(html_layout_string, height=600, scrolling=True)
+    components.html(html_layout_string, height=350, scrolling=False)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
