@@ -120,15 +120,17 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
             paypal.Buttons({
                 createOrder: function(data, actions) {
                     return actions.order.create({
+
                         purchase_units: [{
-                            description: "CPMS Enterprise Activation: """ + c_name + """",
-                            amount: { currency_code: "USD", value: """ + f'"{calculated_subtotal:.2f}"' + """ }
+                            description: "CPMS Enterprise Activation: " + decodeURIComponent("%s"),
+                            amount: { currency_code: "USD", value: "%s" }
                         }]
                     });
                 },
                 onApprove: function(data, actions) {
                     return actions.order.capture().then(function(details) {
-                        var capture = details.purchase_units.payments.captures[0];
+                       
+                        var capture = details.purchase_units[0].payments.captures[0];
                         var orderID = details.id;
                         var amt = capture.amount.value;
                         var cur = capture.amount.currency_code;
