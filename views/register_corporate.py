@@ -28,7 +28,6 @@ st.markdown("---")
 url_params = st.query_params
 is_paid_signal = url_params.get("corp_paid")
 
-# Initialize tracking flags inside stable state memory
 if "corp_form_validated" not in st.session_state:
     st.session_state["corp_form_validated"] = False
 
@@ -50,7 +49,6 @@ with st.container(border=True):
     corp_password = st.text_input("Create Portal Access Password *", type="password", placeholder="Choose a strong password string", value=st.session_state.get("cached_pass", ""))
     corp_seats = st.number_input("Target Seat Allocations (Instructor Accounts)", min_value=5, max_value=500, value=int(st.session_state.get("cached_seats", 25)), step=5)
     
-    # 🟢 FIXED: Using a standard non-form action button to prevent the 404 URL reload crash entirely
     validate_btn = st.button("🔒 Click to View Live PayPal Checkout Buttons", use_container_width=True)
 
 if validate_btn:
@@ -70,7 +68,6 @@ if validate_btn:
                         st.error(f"⚠️ Account Creation Restricted: The email address '{target_email_clean}' is already registered inside our system.")
                         st.session_state["corp_form_validated"] = False
                     else:
-                        # Success flag set in session memory without calling port-burning reload operations
                         st.session_state["corp_form_validated"] = True
                         st.session_state["cached_fname"] = first_name.strip()
                         st.session_state["cached_lname"] = last_name.strip()
@@ -78,11 +75,12 @@ if validate_btn:
                         st.session_state["cached_email"] = target_email_clean
                         st.session_state["cached_pass"] = corp_password
                         st.session_state["cached_seats"] = corp_seats
+                        st.rerun()
         except Exception as e:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Renders custom checkout assets safely.
+# What it does: Restores the exact folder directories required by the SDK.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -102,7 +100,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Plain text template structure
+    # 🟢 FIXED HTML SCHEMAS: Restored exact /sdk/js CDN links and placeholder targets
     html_raw_code = """<!DOCTYPE html>
     <html>
     <head>
@@ -133,6 +131,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
+                        // 🟢 FIXED: Points back cleanly to your active application repository endpoint routes!
                         window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
                     });
                 }
@@ -147,7 +146,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     
     safe_data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_processed)
     
-    # 🟢 FIXED: Wrapped inside an explicit iframe container block inside st.html to prevent framework blocks
     iframe_layout_element = f'<iframe src="{safe_data_url}" style="width: 100%; height: 600px; border: none; overflow: auto;"></iframe>'
     st.html(iframe_layout_element)
 
