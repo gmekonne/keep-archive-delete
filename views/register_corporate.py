@@ -80,8 +80,7 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Uses the modern st.html component to embed the 
-# visual payment buttons safely without triggering warning blocks.
+# What it does: Uses an f-string with double braces to completely avoid syntax errors.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -101,51 +100,49 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Construct the clean, native HTML template
-    # 🟢 FIXED: Wrapped inside an explicit iframe container block inside st.html to prevent framework blocks
-    html_layout_string = """
-    <iframe srcdoc='
+    # 🟢 FIXED: Using explicit double braces {{ }} on JavaScript/CSS objects to stop the compilation crash
+    html_layout_string = f"""
+    <iframe srcdoc="
     <!DOCTYPE html>
     <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://paypal.com""" + paypal_client_id + """&currency=USD"></script>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+        <script src='https://paypal.com{paypal_client_id}&currency=USD'></script>
         <style>
-            body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
-            #paypal-button-container { max-width: 100%; margin-top: 5px; }
+            body {{ font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }}
+            #paypal-button-container {{ max-width: 100%; margin-top: 5px; }}
         </style>
     </head>
     <body>
-        <div id="paypal-button-container"></div>
+        <div id='paypal-button-container'></div>
         <script>
-            paypal.Buttons({
-                createOrder: function(data, actions) {
-                    return actions.order.create({
-                        purchase_units: [{
-                            description: "CPMS Enterprise Activation: """ + c_name + """",
-                            amount: { currency_code: "USD", value: \"""" + f"{calculated_subtotal:.2f}" + \"\" }
-                        }]
-                    });
-                },
-                onApprove: function(data, actions) {
-                    return actions.order.capture().then(function(details) {
-                        var capture = details.purchase_units[0].payments.captures[0];
+            paypal.Buttons({{
+                createOrder: function(data, actions) {{
+                    return actions.order.create({{
+                        purchase_units: [{{
+                            description: 'CPMS Enterprise Activation: {c_name}',
+                            amount: {{ currency_code: 'USD', value: '{calculated_subtotal:.2f}' }}
+                        }}]
+                    }});
+                }},
+                onApprove: function(data, actions) {{
+                    return actions.order.capture().then(function(details) {{
+                        var capture = details.purchase_units.payments.captures[0];
                         var orderID = details.id;
                         var amt = capture.amount.value;
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
-                    });
-                }
-            }).render("#paypal-button-container");
+                        window.parent.location.href = 'https://streamlit.app' + orderID + '&amount=' + amt + '&currency=' + cur + '&raw_json=' + raw;
+                    }});
+                }}
+            }}).render('#paypal-button-container');
         </script>
     </body>
     </html>
-    ' style='width: 100%; height: 600px; border: none; overflow: auto;'></iframe>
+    " style="width: 100%; height: 600px; border: none; overflow: auto;"></iframe>
     """
     
-    # 🟢 FIXED ELEMENT: Uses standard st.html to render the visual buttons without triggering system warnings
     st.html(html_layout_string)
 
 # =====================================================================
