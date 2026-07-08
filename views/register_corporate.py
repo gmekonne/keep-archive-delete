@@ -142,7 +142,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    components.html(html_layout_string, height=350, scrolling=False)
+    components.html(html_layout_string, height=600, scrolling=True)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
