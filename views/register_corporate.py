@@ -134,8 +134,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        # window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
-                        window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
+                        window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
+                        
                     
                     
                     });
