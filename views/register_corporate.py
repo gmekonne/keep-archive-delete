@@ -102,12 +102,13 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # 🟢 FIXED: The full official /sdk/js endpoint path and placeholder token are completely restored!
-    html_raw_code = """<!DOCTYPE html>
+    # Clean raw template string - allows CSS brace separation without processing crashes
+    html_layout_string = """<!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-         <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
+        <!-- 🟢 FIXED DIRECTORY: Added the exact missing /sdk/js? route segment into the source call -->
+        <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
             #paypal-button-container { max-width: 100%; margin-top: 5px; }
@@ -120,8 +121,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                 createOrder: function(data, actions) {
                     return actions.order.create({
                         purchase_units: [{
-                            description: "CPMS Enterprise Activation: ORG_PLACEHOLDER",
-                            amount: { currency_code: "USD", value: "PRICE_PLACEHOLDER" }
+                            description: "CPMS Enterprise Activation: """ + c_name + """",
+                            amount: { currency_code: "USD", value: """ + f'"{calculated_subtotal:.2f}"' + """ }
                         }]
                     });
                 },
@@ -133,7 +134,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        // Points perfectly back to your custom registration route
                         window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
                     });
                 }
@@ -142,16 +142,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # Execute strings replacements cleanly
-    html_processed = html_raw_code.replace("PAYPAL_ID_PLACEHOLDER", str(paypal_client_id))
-    html_processed = html_processed.replace("ORG_PLACEHOLDER", str(c_name))
-    html_processed = html_processed.replace("PRICE_PLACEHOLDER", f"{calculated_subtotal:.2f}")
-    
-    # URL-encode the string payload cleanly to satisfy security filters
-    safe_data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_processed)
-    
-    iframe_layout_element = f'<iframe src="{safe_data_url}" style="width: 100%; height: 600px; border: none; overflow: auto;"></iframe>'
-    components.html(iframe_layout_element, height=600, scrolling=True)
+    components.html(html_layout_string, height=350, scrolling=False)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
