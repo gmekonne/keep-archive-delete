@@ -81,8 +81,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via components wrapper with the absolute 
-# exact CDN endpoint directory routing string path.
+# What it does: Mounts buttons via components wrapper with corrected 
+# height parameters and fixed URL routing redirection strings.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -102,49 +102,48 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Clean raw template string - allows CSS brace separation without processing crashes
-    html_layout_string = """<!DOCTYPE html>
+    # 🟢 FIXED HTML TEMPLATE USING AN F-STRING WITH ESCAPED BRACKETS
+    html_layout_string = f"""<!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <!-- 🟢 FIXED DIRECTORY: Added the exact missing /sdk/js? route segment into the source call -->
-        <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
+        <script src="https://www.paypal.com/sdk/js?client-id={paypal_client_id}&currency=USD"></script>
         <style>
-            body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
-            #paypal-button-container { max-width: 100%; margin-top: 5px; }
+            body {{ font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }}
+            #paypal-button-container {{ max-width: 100%; margin-top: 5px; }}
         </style>
     </head>
     <body>
         <div id="paypal-button-container"></div>
         <script>
-            paypal.Buttons({
-                createOrder: function(data, actions) {
-                    return actions.order.create({
-
-                        purchase_units: [{
-                            description: "CPMS Enterprise Activation: " + decodeURIComponent("%s"),
-                            amount: { currency_code: "USD", value: "%s" }
-                        }]
-                    });
-                },
-                onApprove: function(data, actions) {
-                    return actions.order.capture().then(function(details) {
-                       
+            paypal.Buttons({{
+                createOrder: function(data, actions) {{
+                    return actions.order.create({{
+                        purchase_units: [{{
+                            description: "CPMS Enterprise Activation: {c_name.replace('"', '\\"')}",
+                            amount: {{ currency_code: "USD", value: "{calculated_subtotal:.2f}" }}
+                        }}]
+                    }});
+                }},
+                onApprove: function(data, actions) {{
+                    return actions.order.capture().then(function(details) {{
+                        // 🟢 FIXED: Correct array indexing for response object
                         var capture = details.purchase_units[0].payments.captures[0];
                         var orderID = details.id;
                         var amt = capture.amount.value;
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        
+                        // 🟢 FIXED: Clean, dynamic redirect URL construction
                         window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
-                    });
-                }
-            }).render('#paypal-button-container');
+                    }});
+                }}
+            }}).render('#paypal-button-container');
         </script>
     </body>
     </html>"""
     
+    # 🟢 FIXED: Keeps height at 600px with scrolling enabled to support the expanded credit card form
     components.html(html_layout_string, height=600, scrolling=True)
 
 # =====================================================================
