@@ -11,11 +11,13 @@ import streamlit.components.v1 as components
 # What it does: Establishes a live link to your Hostinger MySQL database.
 # =====================================================================
 
-@st.cache_resource
-def get_mysql_connection_pool():
-    """Creates a persistent, globally cached connection pool to Hostinger.
-       Prevents 'Errno 99 / Port Exhaustion' errors on rapid page reruns."""
-    return pymysql.connect(
+# =====================================================================
+# SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
+# =====================================================================
+def get_mysql_connection():
+    """Fresh link straight to Hostinger with proper configuration 
+       to prevent port exhaustion (Errno 99)."""
+    conn = pymysql.connect(
         host=st.secrets["mysql"]["host"],
         user=st.secrets["mysql"]["user"],
         password=st.secrets["mysql"]["password"],
@@ -23,15 +25,11 @@ def get_mysql_connection_pool():
         port=st.secrets["mysql"].get("port", 3306),
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
-        # 🟢 FIX: Keep connections alive and managed in a reusable pool
-        pool_name="hostinger_pool",
-        pool_size=5
+        # 🟢 FIX: Force the socket to instantly clear out dead connections 
+        # instead of letting them pile up in TIME_WAIT status on your server
+        client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
     )
-
-def get_mysql_connection():
-    """Fetches a reusable connection link from the globally cached pool."""
-    # PyMySQL built-in connection pooling logic
-    return get_mysql_connection_pool()
+    return conn
 
 
 st.title("🏢 Corporate & Institutional Portal Registration")
