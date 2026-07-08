@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import json
 import urllib.parse
+import streamlit.components.v1 as html_renderer
 
 # =====================================================================
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
@@ -80,8 +81,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via the working st.iframe block with the 
-# verified /sdk/js? path and a 600px expanded layout canvas height.
+# What it does: Mounts buttons via components wrapper with the absolute 
+# exact CDN endpoint directory routing string path.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -126,7 +127,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                 },
                 onApprove: function(data, actions) {
                     return actions.order.capture().then(function(details) {
-                        var capture = details.purchase_units.payments.captures;
+                        var capture = details.purchase_units[0].payments.captures[0];
                         var orderID = details.id;
                         var amt = capture.amount.value;
                         var cur = capture.amount.currency_code;
@@ -140,14 +141,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # 🟢 VERIFIED BRING-BACK: Uses the working string parameter scheme via dynamic urllib encoder
-    safe_encoded_src_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_layout_string)
-    
-    # 🟢 EXPANDED: Canvas height set to 600 to prevent card form cutting issues
-    st.iframe(
-        src=safe_encoded_src_url,
-        height=600
-    )
+    # 🟢 FIXED: Replaced the non-existent st.iframe with the native HTML renderer alias
+    html_renderer.html(html_layout_string, height=600, scrolling=True)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
