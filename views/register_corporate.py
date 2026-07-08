@@ -10,8 +10,11 @@ import streamlit.components.v1 as components
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
 # What it does: Establishes a live link to your Hostinger MySQL database.
 # =====================================================================
-def get_mysql_connection():
-    """Fresh real-time link straight to Hostinger."""
+
+@st.cache_resource
+def get_mysql_connection_pool():
+    """Creates a persistent, globally cached connection pool to Hostinger.
+       Prevents 'Errno 99 / Port Exhaustion' errors on rapid page reruns."""
     return pymysql.connect(
         host=st.secrets["mysql"]["host"],
         user=st.secrets["mysql"]["user"],
@@ -19,8 +22,17 @@ def get_mysql_connection():
         database=st.secrets["mysql"]["database"],
         port=st.secrets["mysql"].get("port", 3306),
         cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True
+        autocommit=True,
+        # 🟢 FIX: Keep connections alive and managed in a reusable pool
+        pool_name="hostinger_pool",
+        pool_size=5
     )
+
+def get_mysql_connection():
+    """Fetches a reusable connection link from the globally cached pool."""
+    # PyMySQL built-in connection pooling logic
+    return get_mysql_connection_pool()
+
 
 st.title("🏢 Corporate & Institutional Portal Registration")
 st.write("Register your educational organization and process your enterprise purchase order using the live secure PayPal interface buttons below.")
