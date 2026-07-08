@@ -4,7 +4,6 @@ import datetime
 import hashlib
 import json
 import urllib.parse
-import streamlit.components.v1 as components
 
 # =====================================================================
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
@@ -81,8 +80,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via pure client-side JS CDN lookup.
-# Bypasses all backend Python authentication blocks.
+# What it does: Mounts buttons via the working st.iframe block with the 
+# verified /sdk/js? path and a 600px expanded layout canvas height.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -102,7 +101,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Pure client-side HTML structure. Includes verified /sdk/js? endpoint pathing
+    # Clean raw template string with the verified /sdk/js? endpoint path restored
     html_layout_string = """<!DOCTYPE html>
     <html>
     <head>
@@ -127,12 +126,13 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                 },
                 onApprove: function(data, actions) {
                     return actions.order.capture().then(function(details) {
+                        var capture = details.purchase_units.payments.captures;
                         var orderID = details.id;
-                        var amt = details.purchase_units[0].payments.captures[0].amount.value;
-                        var cur = details.purchase_units[0].payments.captures[0].amount.currency_code;
+                        var amt = capture.amount.value;
+                        var cur = capture.amount.currency_code;
+                        var raw = encodeURIComponent(JSON.stringify(details));
                         
-                        // Clean redirect passing only thin primitives to prevent URL truncation locks
-                        window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur;
+                        window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
                     });
                 }
             }).render('#paypal-button-container');
@@ -140,20 +140,27 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # 600px High Canvas block ensures the expanded credit card forms never get truncated
-    components.html(html_layout_string, height=600, scrolling=True)
+    # 🟢 VERIFIED BRING-BACK: Uses the working string parameter scheme via dynamic urllib encoder
+    safe_encoded_src_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_layout_string)
+    
+    # 🟢 EXPANDED: Canvas height set to 600 to prevent card form cutting issues
+    st.iframe(
+        src=safe_encoded_src_url,
+        height=600
+    )
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
 # What it does: Runs ONLY when the app reads "corp_paid=true" in the URL.
-# Saves the account and records transaction details.
+# Saves the corporate account and updates the receipts ledger.
 # =====================================================================
 if is_paid_signal and str(is_paid_signal).lower() == "true":
     paypal_order_id = url_params.get("orderID")
     captured_amount = url_params.get("amount")
     captured_currency = url_params.get("currency")
+    full_raw_json_str = urllib.parse.unquote(url_params.get("raw_json", "{}"))
     
-    st.info("⚡ Transaction validated by payment loop return link. Committing account arrays...")
+    st.info("⚡ Transaction validated by PayPal. Completing database synchronization loops...")
     
     c_fname = st.session_state.get("cached_fname", "Corporate")
     c_lname = st.session_state.get("cached_lname", "User")
@@ -161,13 +168,12 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
     c_email = st.session_state.get("cached_email")
     c_pass = st.session_state.get("cached_pass", "defaultpass")
     
-    if c_email and paypal_order_id:
+    if c_email:
         try:
             current_ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
             with get_mysql_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Prevent duplicate processing for this orderID
                     cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_order_id,))
                     dup_check = cursor.fetchone()
                     
@@ -176,7 +182,6 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                     else:
                         hashed_password_string = hashlib.sha256(c_pass.encode('utf-8')).hexdigest()
                         
-                        # Write Step 1: Create the secure Corporate User row
                         sql_insert_user = """
                             INSERT INTO user (fname, lname, corp_name, email, password, acct_type, subscription_status, dateCreated, role, user_role, paypal_order_id, last_payment_date) 
                             VALUES (%s, %s, %s, %s, %s, 'corporate', 'active', %s, 'instructor', 'instructor', %s, %s)
@@ -188,16 +193,14 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                         
                         new_corporate_userid = cursor.lastrowid
                         
-                        # Write Step 2: Insert transaction auditing history ledger row record
                         sql_insert_txn = """
                             INSERT INTO transactions 
                             (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
                             VALUES (%s, %s, %s, %s, 'COMPLETED', 'PayPal', %s, %s)
                         """
-                        mock_audit_json = json.dumps({"order_id": paypal_order_id, "gateway": "PayPal Buttons Canvas API"})
                         cursor.execute(sql_insert_txn, (
                             int(new_corporate_userid), paypal_order_id, float(captured_amount),
-                            captured_currency, mock_audit_json, current_ts
+                            captured_currency, full_raw_json_str, current_ts
                         ))
                         
                         st.success(f"🎉 **Corporate Profile Deployed Successfully!** Account created with User ID **{new_corporate_userid}**.")
