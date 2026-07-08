@@ -80,8 +80,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: URL-encodes a clean HTML layout string to render the buttons 
-# through a standard data data URL, keeping double quotes completely safe.
+# What it does: Mounts buttons via the working st.html block using URL encoding
+# and standard safe string replacements to avoid all character crashes.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -101,12 +101,12 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # 🟢 FIXED: Swapped back to a clean text template block (double braces removed)
+    # 🟢 FIXED: Clean plain python string layout. Absolutely no f-string tokens or backslashes used.
     html_raw_code = """<!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://paypal.com""" + paypal_client_id + """&currency=USD"></script>
+        <script src="https://paypal.com"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
             #paypal-button-container { max-width: 100%; margin-top: 5px; }
@@ -119,8 +119,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                 createOrder: function(data, actions) {
                     return actions.order.create({
                         purchase_units: [{
-                            description: "CPMS Enterprise Activation: """ + c_name + """",
-                            amount: { currency_code: "USD", value: \"""" + f"{calculated_subtotal:.2f}" + """\" }
+                            description: "CPMS Enterprise Activation: ORG_PLACEHOLDER",
+                            amount: { currency_code: "USD", value: "PRICE_PLACEHOLDER" }
                         }]
                     });
                 },
@@ -140,10 +140,15 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # URL-encode the code payload string block cleanly to satisfy security filters
-    safe_data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_raw_code)
+    # Safely swap placeholders with runtime variable text values
+    html_processed = html_raw_code.replace("PAYPAL_ID_PLACEHOLDER", str(paypal_client_id))
+    html_processed = html_processed.replace("ORG_PLACEHOLDER", str(c_name))
+    html_processed = html_processed.replace("PRICE_PLACEHOLDER", f"{calculated_subtotal:.2f}")
     
-    # 🟢 FIXED ELEMENT: Passes the data parameter straight inside a single-quote wrapped frame layout via st.html
+    # URL-encode the string payload cleanly to satisfy security filters
+    safe_data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_processed)
+    
+    # Render inside single-quote wrapped frame layout via standard st.html
     iframe_layout_element = f'<iframe src="{safe_data_url}" style="width: 100%; height: 600px; border: none; overflow: auto;"></iframe>'
     st.html(iframe_layout_element)
 
