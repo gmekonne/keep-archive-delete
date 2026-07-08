@@ -82,7 +82,7 @@ if validate_btn:
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
 # What it does: Mounts buttons via components wrapper with the absolute 
-# exact CDN endpoint directory routing string path and an expanded height.
+# exact CDN endpoint directory routing string path.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -107,7 +107,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <!-- 🟢 LINK VERIFIED: Fixed directory routing endpoint is 100% restored -->
+        <!-- 🟢 FIXED DIRECTORY: Added the exact missing /sdk/js? route segment into the source call -->
         <script src="https://www.paypal.com/sdk/js?client-id=""" + paypal_client_id + """&currency=USD"></script>
         <style>
             body { font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }
@@ -142,11 +142,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # URL-encode the code payload string block cleanly to satisfy security filters
-    safe_data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_layout_string)
-    
-    # Render spacious container layout with scrolling enabled
-    components.html(f'<iframe src="{safe_data_url}" style="width: 100%; height: 600px; border: none; overflow: auto;"></iframe>', height=600, scrolling=True)
+    components.html(html_layout_string, height=350, scrolling=False)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
