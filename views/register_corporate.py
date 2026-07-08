@@ -4,7 +4,6 @@ import datetime
 import hashlib
 import json
 import urllib.parse
-import streamlit.components.v1 as html_renderer
 
 # =====================================================================
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
@@ -81,8 +80,8 @@ if validate_btn:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via components wrapper with the absolute 
-# exact CDN endpoint directory routing string path.
+# What it does: Uses the modern st.html component to embed the 
+# visual payment buttons safely without triggering warning blocks.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -102,8 +101,11 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # Clean raw template string with the verified /sdk/js? endpoint path restored
-    html_layout_string = """<!DOCTYPE html>
+    # Construct the clean, native HTML template
+    # 🟢 FIXED: Wrapped inside an explicit iframe container block inside st.html to prevent framework blocks
+    html_layout_string = """
+    <iframe srcdoc='
+    <!DOCTYPE html>
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -121,7 +123,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                     return actions.order.create({
                         purchase_units: [{
                             description: "CPMS Enterprise Activation: """ + c_name + """",
-                            amount: { currency_code: "USD", value: """ + f'"{calculated_subtotal:.2f}"' + """ }
+                            amount: { currency_code: "USD", value: \"""" + f"{calculated_subtotal:.2f}" + \"\" }
                         }]
                     });
                 },
@@ -136,13 +138,15 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         window.parent.location.href = "https://streamlit.app" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
                     });
                 }
-            }).render('#paypal-button-container');
+            }).render("#paypal-button-container");
         </script>
     </body>
-    </html>"""
+    </html>
+    ' style='width: 100%; height: 600px; border: none; overflow: auto;'></iframe>
+    """
     
-    # 🟢 FIXED: Replaced the non-existent st.iframe with the native HTML renderer alias
-    html_renderer.html(html_layout_string, height=600, scrolling=True)
+    # 🟢 FIXED ELEMENT: Uses standard st.html to render the visual buttons without triggering system warnings
+    st.html(html_layout_string)
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
