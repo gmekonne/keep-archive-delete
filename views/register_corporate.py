@@ -28,28 +28,30 @@ st.markdown("---")
 url_params = st.query_params
 is_paid_signal = url_params.get("corp_paid")
 
+# Initialize tracking flags inside stable state memory
 if "corp_form_validated" not in st.session_state:
     st.session_state["corp_form_validated"] = False
 
 # =====================================================================
 # SECTION 2: THE REGISTRATION FORM (STEP 1)
-# What it does: Captures all text data and runs pre-flight duplicate scans on submit.
+# What it does: Captures text data and runs database checks natively.
 # =====================================================================
 st.markdown("##### 📝 Step 1: Administrative Account Specifications")
 
-with st.form("corporate_onboarding_form", clear_on_submit=False):
+with st.container(border=True):
     col_n1, col_n2 = st.columns(2)
     with col_n1:
-        first_name = st.text_input("First Name *", placeholder="e.g., John")
+        first_name = st.text_input("First Name *", placeholder="e.g., John", value=st.session_state.get("cached_fname", ""))
     with col_n2:
-        last_name = st.text_input("Last Name *", placeholder="e.g., Smith")
+        last_name = st.text_input("Last Name *", placeholder="e.g., Smith", value=st.session_state.get("cached_lname", ""))
         
-    corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University")
-    corp_email = st.text_input("Administrative Account Email *", placeholder="admin@domain.com")
-    corp_password = st.text_input("Create Portal Access Password *", type="password", placeholder="Choose a strong password string")
-    corp_seats = st.number_input("Target Seat Allocations (Instructor Accounts)", min_value=5, max_value=500, value=25, step=5)
+    corp_name = st.text_input("Organization / University Name *", placeholder="e.g., Global Tech University", value=st.session_state.get("cached_org", ""))
+    corp_email = st.text_input("Administrative Account Email *", placeholder="admin@domain.com", value=st.session_state.get("cached_email", ""))
+    corp_password = st.text_input("Create Portal Access Password *", type="password", placeholder="Choose a strong password string", value=st.session_state.get("cached_pass", ""))
+    corp_seats = st.number_input("Target Seat Allocations (Instructor Accounts)", min_value=5, max_value=500, value=int(st.session_state.get("cached_seats", 25)), step=5)
     
-    validate_btn = st.form_submit_button("🔒 Validate Roster Fields & Initialize Checkout", use_container_width=True)
+    # 🟢 FIXED: Using a standard non-form action button to prevent the 404 URL reload crash entirely
+    validate_btn = st.button("🔒 Click to View Live PayPal Checkout Buttons", use_container_width=True)
 
 if validate_btn:
     if not first_name or not last_name or not corp_name or not corp_email or not corp_password:
@@ -68,6 +70,7 @@ if validate_btn:
                         st.error(f"⚠️ Account Creation Restricted: The email address '{target_email_clean}' is already registered inside our system.")
                         st.session_state["corp_form_validated"] = False
                     else:
+                        # Success flag set in session memory without calling port-burning reload operations
                         st.session_state["corp_form_validated"] = True
                         st.session_state["cached_fname"] = first_name.strip()
                         st.session_state["cached_lname"] = last_name.strip()
@@ -75,13 +78,11 @@ if validate_btn:
                         st.session_state["cached_email"] = target_email_clean
                         st.session_state["cached_pass"] = corp_password
                         st.session_state["cached_seats"] = corp_seats
-                        st.rerun()
         except Exception as e:
             st.error(f"Failed to execute pre-flight database scans: {e}")
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via the working st.html block using URL encoding
-# and standard safe string replacements to avoid all character crashes.
+# What it does: Renders custom checkout assets safely.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
@@ -101,7 +102,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
     paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
 
-    # 🟢 FIXED: Clean plain python string layout. Absolutely no f-string tokens or backslashes used.
+    # Plain text template structure
     html_raw_code = """<!DOCTYPE html>
     <html>
     <head>
@@ -140,15 +141,13 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     </body>
     </html>"""
     
-    # Safely swap placeholders with runtime variable text values
     html_processed = html_raw_code.replace("PAYPAL_ID_PLACEHOLDER", str(paypal_client_id))
     html_processed = html_processed.replace("ORG_PLACEHOLDER", str(c_name))
     html_processed = html_processed.replace("PRICE_PLACEHOLDER", f"{calculated_subtotal:.2f}")
     
-    # URL-encode the string payload cleanly to satisfy security filters
     safe_data_url = "data:text/html;charset=utf-8," + urllib.parse.quote(html_processed)
     
-    # Render inside single-quote wrapped frame layout via standard st.html
+    # 🟢 FIXED: Wrapped inside an explicit iframe container block inside st.html to prevent framework blocks
     iframe_layout_element = f'<iframe src="{safe_data_url}" style="width: 100%; height: 600px; border: none; overflow: auto;"></iframe>'
     st.html(iframe_layout_element)
 
