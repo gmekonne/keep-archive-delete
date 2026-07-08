@@ -135,7 +135,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
                         // 🟢 FIXED: Clean, dynamic redirect URL construction
-                        window.parent.location.href = window.parent.location.origin + window.parent.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
+                        
+                        window.top.location.href = window.top.location.origin + window.top.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;                                                   
                     }});
                 }}
             }}).render('#paypal-button-container');
