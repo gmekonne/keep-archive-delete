@@ -152,15 +152,24 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         }}]
                     }});
                 }},
+
+// 🟢 REPLACE WITH THIS:
                 onApprove: function(data, actions) {{
                     return actions.order.capture().then(function(details) {{
-                        // 🟢 FIXED: Correct array indexing for response object
                         var capture = details.purchase_units[0].payments.captures[0];
                         var orderID = details.id;
                         var amt = capture.amount.value;
                         var cur = capture.amount.currency_code;
                         var raw = encodeURIComponent(JSON.stringify(details));
                         
+                        window.top.location.href = window.top.location.origin + window.top.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
+                    }});
+                }},
+                onError: function(err) {{
+                    // 🟢 Forces the iframe to break out and alert your screen with the exact decline code
+                    alert("🔴 PayPal Sandbox Gateway Rejected Transaction: " + JSON.stringify(err));
+                    console.error("PayPal Error Logs:", err);
+                }}                        
                         // 🟢 FIXED: Clean, dynamic redirect URL construction
                         
                         window.top.location.href = window.top.location.origin + window.top.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;                                                   
