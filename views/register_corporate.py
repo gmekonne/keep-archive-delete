@@ -138,20 +138,19 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
         <div id="paypal-button-container"></div>
         <script>
             paypal.Buttons({{
-                // 🟢 REPLACE WITH THIS:
-                createOrder: function(data, actions) {
-                    // Safety check: If the subtotal is broken or 0, fallback to a safe test amount
+                // 🟢 FIXED SECTION (Every structural JavaScript brace is cleanly doubled)
+                createOrder: function(data, actions) {{
                     var finalAmount = "{calculated_subtotal:.2f}";
-                    if (parseFloat(finalAmount) <= 0) {
+                    if (parseFloat(finalAmount) <= 0) {{
                         finalAmount = "10.00"; 
-                    }
-                    return actions.order.create({
-                        purchase_units: [{
+                    }}
+                    return actions.order.create({{
+                        purchase_units: [{{
                             description: "CPMS Enterprise Activation Test",
-                            amount: { currency_code: "USD", value: finalAmount }
-                        }]
-                    });
-                },
+                            amount: {{ currency_code: "USD", value: finalAmount }}
+                        }}]
+                    }});
+                }},
                 onApprove: function(data, actions) {{
                     return actions.order.capture().then(function(details) {{
                         // 🟢 FIXED: Correct array indexing for response object
