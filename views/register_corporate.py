@@ -67,28 +67,39 @@ if validate_btn:
         st.error("❌ All starred fields are strictly required to initialize your profile setup.")
         st.session_state["corp_form_validated"] = False
     else:
+# 🟢 PASTE THIS EXACT CODE IN ITS PLACE:
         try:
             target_email_clean = corp_email.strip().lower()
             
-            with get_mysql_connection() as conn:
+            # Establish the connection explicitly
+            conn = get_mysql_connection()
+            duplicate_user_found = None
+            
+            try:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT userID FROM user WHERE LOWER(email) = %s", (target_email_clean,))
                     duplicate_user_found = cursor.fetchone()
+            finally:
+                # 🟢 FORCE CLOSURE: Prevents sockets piling up in TIME_WAIT status
+                conn.close()
                     
-                    if duplicate_user_found:
-                        st.error(f"⚠️ Account Creation Restricted: The email address '{target_email_clean}' is already registered inside our system.")
-                        st.session_state["corp_form_validated"] = False
-                    else:
-                        st.session_state["corp_form_validated"] = True
-                        st.session_state["cached_fname"] = first_name.strip()
-                        st.session_state["cached_lname"] = last_name.strip()
-                        st.session_state["cached_org"] = corp_name.strip()
-                        st.session_state["cached_email"] = target_email_clean
-                        st.session_state["cached_pass"] = corp_password
-                        st.session_state["cached_seats"] = corp_seats
-                        st.rerun()
+            if duplicate_user_found:
+                st.error(f"⚠️ Account Creation Restricted: The email address '{target_email_clean}' is already registered inside our system.")
+                st.session_state["corp_form_validated"] = False
+            else:
+                st.session_state["corp_form_validated"] = True
+                st.session_state["cached_fname"] = first_name.strip()
+                st.session_state["cached_lname"] = last_name.strip()
+                st.session_state["cached_org"] = corp_name.strip()
+                st.session_state["cached_email"] = target_email_clean
+                st.session_state["cached_pass"] = corp_password
+                st.session_state["cached_seats"] = corp_seats
+                st.rerun()
+                
         except Exception as e:
             st.error(f"Failed to execute pre-flight database scans: {e}")
+
+    
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
 # What it does: Mounts buttons via components wrapper with corrected 
