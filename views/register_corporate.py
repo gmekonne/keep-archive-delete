@@ -139,7 +139,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
         <div id="paypal-button-container"></div>
         <script>
             paypal.Buttons({{
-                // 🟢 FIXED SECTION (Every structural JavaScript brace is cleanly doubled)
                 createOrder: function(data, actions) {{
                     var finalAmount = "{calculated_subtotal:.2f}";
                     if (parseFloat(finalAmount) <= 0) {{
@@ -152,8 +151,6 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                         }}]
                     }});
                 }},
-
-// 🟢 REPLACE WITH THIS:
                 onApprove: function(data, actions) {{
                     return actions.order.capture().then(function(details) {{
                         var capture = details.purchase_units[0].payments.captures[0];
@@ -166,14 +163,8 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
                     }});
                 }},
                 onError: function(err) {{
-                    // 🟢 Forces the iframe to break out and alert your screen with the exact decline code
                     alert("🔴 PayPal Sandbox Gateway Rejected Transaction: " + JSON.stringify(err));
                     console.error("PayPal Error Logs:", err);
-                }}                        
-                        // 🟢 FIXED: Clean, dynamic redirect URL construction
-                        
-                        window.top.location.href = window.top.location.origin + window.top.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;                                                   
-                    }});
                 }}
             }}).render('#paypal-button-container');
         </script>
