@@ -16,31 +16,23 @@ def get_mysql_connection():
     host_domain = st.secrets["mysql"]["host"]
     
     try:
-        # 🟢 FORCE RESOLUTION: Get the absolute IPv4 address for Hostinger
+        # Resolve Hostinger domain to a direct IPv4 to prevent local system routing blocks
         resolved_ip = socket.gethostbyname(host_domain)
     except Exception:
-        # Fallback to domain if resolution fails
+        # Fallback to domain if dns resolution fails
         resolved_ip = host_domain
 
-    conn = pymysql.connect(
-        host=resolved_ip,  # Connect via absolute IPv4
+    # Create and return the connection
+    return pymysql.connect(
+        host=resolved_ip,
         user=st.secrets["mysql"]["user"],
         password=st.secrets["mysql"]["password"],
         database=st.secrets["mysql"]["database"],
         port=st.secrets["mysql"].get("port", 3306),
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
-        client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
+        connect_timeout=5  # Fast failure if blocked
     )
-    
-    # Recycle socket settings
-    sock = conn.get_proto().connection
-    if sock and hasattr(sock, 'setsockopt'):
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        
-    return conn
-
-
 
 
 
