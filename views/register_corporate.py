@@ -5,15 +5,25 @@ import hashlib
 import json
 import urllib.parse
 import streamlit.components.v1 as components
+import socket
+
 
 # =====================================================================
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
 # =====================================================================
 def get_mysql_connection():
-    """Fresh link straight to Hostinger with strict socket recycling 
-       to permanently prevent port exhaustion (Errno 99)."""
+    """Resolves the Hostinger domain to IPv4 to prevent local container routing errors."""
+    host_domain = st.secrets["mysql"]["host"]
+    
+    try:
+        # 🟢 FORCE RESOLUTION: Get the absolute IPv4 address for Hostinger
+        resolved_ip = socket.gethostbyname(host_domain)
+    except Exception:
+        # Fallback to domain if resolution fails
+        resolved_ip = host_domain
+
     conn = pymysql.connect(
-        host=st.secrets["mysql"]["host"],
+        host=resolved_ip,  # Connect via absolute IPv4
         user=st.secrets["mysql"]["user"],
         password=st.secrets["mysql"]["password"],
         database=st.secrets["mysql"]["database"],
@@ -23,14 +33,14 @@ def get_mysql_connection():
         client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
     )
     
-    # 🟢 FIX: Force the underlying socket to instantly free up and allow reuse
-    # This prevents the OS from holding the port in a 2-minute TIME_WAIT state.
+    # Recycle socket settings
     sock = conn.get_proto().connection
     if sock and hasattr(sock, 'setsockopt'):
-        import socket
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
     return conn
+
+
 
 
 
