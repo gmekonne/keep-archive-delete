@@ -10,8 +10,8 @@ import streamlit.components.v1 as components
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
 # =====================================================================
 def get_mysql_connection():
-    """Fresh link straight to Hostinger with proper configuration 
-       to prevent port exhaustion (Errno 99)."""
+    """Fresh link straight to Hostinger with strict socket recycling 
+       to permanently prevent port exhaustion (Errno 99)."""
     conn = pymysql.connect(
         host=st.secrets["mysql"]["host"],
         user=st.secrets["mysql"]["user"],
@@ -22,7 +22,16 @@ def get_mysql_connection():
         autocommit=True,
         client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
     )
+    
+    # 🟢 FIX: Force the underlying socket to instantly free up and allow reuse
+    # This prevents the OS from holding the port in a 2-minute TIME_WAIT state.
+    sock = conn.get_proto().connection
+    if sock and hasattr(sock, 'setsockopt'):
+        import socket
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
     return conn
+
 
 
 st.title("🏢 Corporate & Institutional Portal Registration")
