@@ -106,7 +106,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     # -------------------------------------------------------------------------
     paypal_layout_string = """
     <div id="paypal-button-container-P-3BM69430LE4978304NJMC6AQ"></div>
-    <script src="https://www.paypal.com/sdk/js?client-id=AY-6Q9n6LBX722jJqwtIs722v9qo_RrHAIp3Vk1XWZpGjrDwCQoq5999BvuKLQRpVAOQKtUTsRcwRCFP&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=AWKacA6mY7eRetWd_Bev2eLZdOdeArolXnBdl9KKMISvEO13pvNgDttRGiMqahq-TV55tXsdblceQmnw&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
     <script>
       paypal.Buttons({
           style: {
