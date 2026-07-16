@@ -116,7 +116,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
     # <div> line and <script> blocks.
     # -------------------------------------------------------------------------
     paypal_layout_string = """
-    <div id="paypal-button-container-P-3BM69430LE4978304NJMC6AQ"></div>
+    <div id="paypal-button-container-P-2HP84115NM164722TNJMGWGQ"></div>
     <script src="https://www.paypal.com/sdk/js?client-id=AWKacA6mY7eRetWd_Bev2eLZdOdeArolXnBdl9KKMISvEO13pvNgDttRGiMqahq-TV55tXsdblceQmnw&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
     <script>
       paypal.Buttons({
@@ -129,7 +129,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
           createSubscription: function(data, actions) {
             return actions.subscription.create({
               /* Creates the subscription */
-              plan_id: 'P-3BM69430LE4978304NJMC6AQ',
+              plan_id: 'P-2HP84115NM164722TNJMGWGQ',
               quantity: 1 // The quantity of the product for a subscription
             });
           },
@@ -144,7 +144,7 @@ if st.session_state["corp_form_validated"] and not is_paid_signal:
               window.top.location.href = window.top.location.origin + window.top.location.pathname + 
                   "?corp_paid=true&subscriptionID=" + subID + "&raw_json=" + raw;
           }
-      }).render('#paypal-button-container-P-3BM69430LE4978304NJMC6AQ'); // Renders the PayPal button
+      }).render('#paypal-button-container-P-2HP84115NM164722TNJMGWGQ'); // Renders the PayPal button
     </script>
     """
     # -------------------------------------------------------------------------
