@@ -92,10 +92,10 @@ if validate_btn:
                 st.session_state["cached_pass"] = corp_password
                 st.session_state["cached_seats"] = corp_seats
                 st.rerun()
-                
+
         except Exception as e:
             st.error(f"Failed to execute pre-flight database scans: {e}")
-
+            st.session_state["corp_form_validated"] = False  # Keep state clean on connection failure
     
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
