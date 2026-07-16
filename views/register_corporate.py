@@ -8,11 +8,6 @@ import streamlit.components.v1 as components
 
 # =====================================================================
 # SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
-# What it does: Establishes a live link to your Hostinger MySQL database.
-# =====================================================================
-
-# =====================================================================
-# SECTION 1: DATABASE CONNECTION INFRASTRUCTURE
 # =====================================================================
 def get_mysql_connection():
     """Fresh link straight to Hostinger with proper configuration 
@@ -25,15 +20,13 @@ def get_mysql_connection():
         port=st.secrets["mysql"].get("port", 3306),
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
-        # 🟢 FIX: Force the socket to instantly clear out dead connections 
-        # instead of letting them pile up in TIME_WAIT status on your server
         client_flag=pymysql.constants.CLIENT.MULTI_STATEMENTS
     )
     return conn
 
 
 st.title("🏢 Corporate & Institutional Portal Registration")
-st.write("Register your educational organization and process your enterprise purchase order using the live secure PayPal interface buttons below.")
+st.write("Register your educational organization and process your enterprise subscription using the secure PayPal interface buttons below.")
 st.markdown("---")
 
 url_params = st.query_params
@@ -44,7 +37,6 @@ if "corp_form_validated" not in st.session_state:
 
 # =====================================================================
 # SECTION 2: THE REGISTRATION FORM (STEP 1)
-# What it does: Captures all text data and runs pre-flight duplicate scans on submit.
 # =====================================================================
 st.markdown("##### 📝 Step 1: Administrative Account Specifications")
 
@@ -67,11 +59,8 @@ if validate_btn:
         st.error("❌ All starred fields are strictly required to initialize your profile setup.")
         st.session_state["corp_form_validated"] = False
     else:
-# 🟢 PASTE THIS EXACT CODE IN ITS PLACE:
         try:
             target_email_clean = corp_email.strip().lower()
-            
-            # Establish the connection explicitly
             conn = get_mysql_connection()
             duplicate_user_found = None
             
@@ -80,7 +69,6 @@ if validate_btn:
                     cursor.execute("SELECT userID FROM user WHERE LOWER(email) = %s", (target_email_clean,))
                     duplicate_user_found = cursor.fetchone()
             finally:
-                # 🟢 FORCE CLOSURE: Prevents sockets piling up in TIME_WAIT status
                 conn.close()
                     
             if duplicate_user_found:
@@ -102,90 +90,66 @@ if validate_btn:
     
 # =====================================================================
 # SECTION 3: VISUAL PAYPAL SMART BUTTON RENDER (STEP 2)
-# What it does: Mounts buttons via components wrapper with corrected 
-# height parameters and fixed URL routing redirection strings.
 # =====================================================================
 if st.session_state["corp_form_validated"] and not is_paid_signal:
     st.markdown("---")
     st.markdown("##### 💳 Step 2: Live Payment Processing Portal")
-    st.success("🟢 Fields Validated successfully! Please complete your checkout selection below.")
+    st.success("🟢 Fields Validated successfully! Please complete your subscription checkout below.")
     
-    c_fname = st.session_state["cached_fname"]
-    c_lname = st.session_state["cached_lname"]
-    c_name = st.session_state["cached_org"]
-    c_email = st.session_state["cached_email"]
-    c_pass = st.session_state["cached_pass"]
     c_seats = st.session_state["cached_seats"]
-    
-    calculated_subtotal = float(c_seats * 10.0)
-    st.info(f"🏅 **Enterprise Invoice Quote:** {c_seats} Teacher Accounts @ $10.00 each = **${calculated_subtotal:.2f} USD / Semester**")
+    st.info(f"🏅 **Selected Tier:** CPMS Classroom Basic Subscription for **{c_seats} Seats**.")
 
-    mode = str(st.secrets["paypal"].get("mode", "sandbox")).strip().lower()
-    paypal_client_id = str(st.secrets["paypal"]["sandbox_client_id"]).strip() if mode == "sandbox" else str(st.secrets["paypal"]["live_client_id"]).strip()
-
-    # 🟢 FIXED HTML TEMPLATE USING AN F-STRING WITH ESCAPED BRACKETS
-    html_layout_string = f"""<!DOCTYPE html>
-    <html>
-    <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://www.paypal.com/sdk/js?client-id={paypal_client_id}&currency=USD"></script>
-        
-        <style>
-            body {{ font-family: Arial, sans-serif; background-color: transparent; margin: 0; padding: 5px; }}
-            #paypal-button-container {{ max-width: 100%; margin-top: 5px; }}
-        </style>
-    </head>
-    <body>
-        <div id="paypal-button-container"></div>
-        <script>
-            paypal.Buttons({{
-                createOrder: function(data, actions) {{
-                    var finalAmount = "{calculated_subtotal:.2f}";
-                    if (parseFloat(finalAmount) <= 0) {{
-                        finalAmount = "10.00"; 
-                    }}
-                    return actions.order.create({{
-                        purchase_units: [{{
-                            description: "CPMS Enterprise Activation Test",
-                            amount: {{ currency_code: "USD", value: finalAmount }}
-                        }}]
-                    }});
-                }},
-                onApprove: function(data, actions) {{
-                    return actions.order.capture().then(function(details) {{
-                        var capture = details.purchase_units[0].payments.captures[0];
-                        var orderID = details.id;
-                        var amt = capture.amount.value;
-                        var cur = capture.amount.currency_code;
-                        var raw = encodeURIComponent(JSON.stringify(details));
-                        
-                        window.top.location.href = window.top.location.origin + window.top.location.pathname + "?corp_paid=true&orderID=" + orderID + "&amount=" + amt + "&currency=" + cur + "&raw_json=" + raw;
-                    }});
-                }},
-                onError: function(err) {{
-                    alert("🔴 PayPal Sandbox Gateway Rejected Transaction: " + JSON.stringify(err));
-                    console.error("PayPal Error Logs:", err);
-                }}
-            }}).render('#paypal-button-container');
-        </script>
-    </body>
-    </html>"""
+    # -------------------------------------------------------------------------
+    # PASTE YOUR ENTIRE COPIED PAYPAL CODE DIRECTLY INSIDE THE TRIPLE QUOTES BELOW.
+    # Replace everything between the triple quotes with your exact copied 
+    # <div> line and <script> blocks.
+    # -------------------------------------------------------------------------
+    paypal_layout_string = """
+    <div id="paypal-button-container-P-3BM69430LE4978304NJMC6AQ"></div>
+    <script src="https://www.paypal.com/sdk/js?client-id=AY-6Q9n6LBX722jJqwtIs722v9qo_RrHAIp3Vk1XWZpGjrDwCQoq5999BvuKLQRpVAOQKtUTsRcwRCFP&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
+    <script>
+      paypal.Buttons({
+          style: {
+              shape: 'rect',
+              color: 'gold',
+              layout: 'vertical',
+              label: 'subscribe'
+          },
+          createSubscription: function(data, actions) {
+            return actions.subscription.create({
+              /* Creates the subscription */
+              plan_id: 'P-3BM69430LE4978304NJMC6AQ',
+              quantity: 1 // The quantity of the product for a subscription
+            });
+          },
+          onApprove: function(data, actions) {
+              // 1. Capture the unique subscription ID generated by PayPal
+              var subID = data.subscriptionID;
+              
+              // 2. Package the response data so your python database code can read it
+              var raw = encodeURIComponent(JSON.stringify(data));
+              
+              // 3. Force the parent browser tab to reload with the success signals in the URL
+              window.top.location.href = window.top.location.origin + window.top.location.pathname + 
+                  "?corp_paid=true&subscriptionID=" + subID + "&raw_json=" + raw;
+          }
+      }).render('#paypal-button-container-P-3BM69430LE4978304NJMC6AQ'); // Renders the PayPal button
+    </script>
+    """
+    # -------------------------------------------------------------------------
     
-    # 🟢 FIXED: Keeps height at 600px with scrolling enabled to support the expanded credit card form
-    components.html(html_layout_string, height=600, scrolling=True)
+    # 🟢 FIXED: Kept height at 600px to ensure proper UI layout without tight scrolling
+    components.html(paypal_layout_string, height=600, scrolling=True)
+
 
 # =====================================================================
 # SECTION 4: THE URL INTERCEPTOR & BACKEND DATA WRITER
-# What it does: Runs ONLY when the app reads "corp_paid=true" in the URL.
-# Saves the corporate account and updates the receipts ledger.
 # =====================================================================
 if is_paid_signal and str(is_paid_signal).lower() == "true":
-    paypal_order_id = url_params.get("orderID")
-    captured_amount = url_params.get("amount")
-    captured_currency = url_params.get("currency")
+    paypal_sub_id = url_params.get("subscriptionID")
     full_raw_json_str = urllib.parse.unquote(url_params.get("raw_json", "{}"))
     
-    st.info("⚡ Transaction validated by PayPal. Completing database synchronization loops...")
+    st.info("⚡ Subscription validated by PayPal. Completing database synchronization loops...")
     
     c_fname = st.session_state.get("cached_fname", "Corporate")
     c_lname = st.session_state.get("cached_lname", "User")
@@ -199,11 +163,11 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
             
             with get_mysql_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_order_id,))
+                    cursor.execute("SELECT COUNT(*) as cnt FROM transactions WHERE txn_id = %s", (paypal_sub_id,))
                     dup_check = cursor.fetchone()
                     
                     if dup_check and dup_check["cnt"] > 0:
-                        st.warning("🎉 Payment already processed previously.")
+                        st.warning("🎉 This subscription payment has already been securely processed.")
                     else:
                         hashed_password_string = hashlib.sha256(c_pass.encode('utf-8')).hexdigest()
                         
@@ -213,7 +177,7 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                         """
                         cursor.execute(sql_insert_user, (
                             c_fname, c_lname, c_name, c_email.strip().lower(), 
-                            hashed_password_string, current_ts, paypal_order_id, current_ts
+                            hashed_password_string, current_ts, paypal_sub_id, current_ts
                         ))
                         
                         new_corporate_userid = cursor.lastrowid
@@ -221,11 +185,11 @@ if is_paid_signal and str(is_paid_signal).lower() == "true":
                         sql_insert_txn = """
                             INSERT INTO transactions 
                             (user_id, txn_id, amount, currency, status, payment_gateway, transaction_data, created_at) 
-                            VALUES (%s, %s, %s, %s, 'COMPLETED', 'PayPal', %s, %s)
+                            VALUES (%s, %s, %s, %s, 'ACTIVE', 'PayPal-Subscription', %s, %s)
                         """
                         cursor.execute(sql_insert_txn, (
-                            int(new_corporate_userid), paypal_order_id, float(captured_amount),
-                            captured_currency, full_raw_json_str, current_ts
+                            int(new_corporate_userid), paypal_sub_id, 0.0, 
+                            "USD", full_raw_json_str, current_ts
                         ))
                         
                         st.success(f"🎉 **Corporate Profile Deployed Successfully!** Account created with User ID **{new_corporate_userid}**.")
