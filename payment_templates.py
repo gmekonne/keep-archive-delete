@@ -74,7 +74,7 @@ PAYPAL_CHECKOUT_HTML = """
     createSubscription: function(data, actions) {
       const finalSeats = seatInput.value || '40';
       return actions.subscription.create({
-        'plan_id': 'P-YOUR_PLAN_ID', // Swap with your actual Plan ID
+        'plan_id': 'P-2HP84115NM164722TNJMGWGQ', // Swap with your actual Plan ID
         'quantity': finalSeats
       });
     },
