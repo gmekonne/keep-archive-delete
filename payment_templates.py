@@ -37,7 +37,7 @@ PAYPAL_CHECKOUT_HTML = """
 </div>
 
 <!-- D. Load PayPal SDK -->
-<script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&vault=true&intent=subscription"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=AWKacA6mY7eRetWd_Bev2eLZdOdeArolXnBdl9KKMISvEO13pvNgDttRGiMqahq-TV55tXsdblceQmnw&vault=true&intent=subscription"></script>
 
 <!-- E. Dynamic logic and SDK initialization -->
 <script>
