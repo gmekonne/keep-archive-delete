@@ -2,23 +2,34 @@ import streamlit as st
 import traceback
 
 
+import pymysql
 import socket
 
 
-st.title("Network Diagnostic Test")
-
-try:
-    # Attempt to open a raw network socket to the database on port 3306
-    # Timeout after 5 seconds so the app doesn't freeze permanently
-    socket.create_connection(("31.97.208.88", 3306), timeout=5)
-    st.success("🚀 Success! The cloud server CAN reach the MySQL port.")
-except socket.timeout:
-    st.error("❌ Network Timeout: The database firewall is blocking your cloud server.")
-except Exception as e:
-    st.error(f"❌ Connection failed: {e}")
+# Place this at the very top of app.py, right below your imports
 
 
-# Setup global application authorization tracker states
+st.title("System Diagnostics")
+
+# Use a container to display the live database status
+with st.status("Testing database availability...", expanded=True) as status:
+    try:
+        connection = pymysql.connect(
+            host="31.97.208.88",
+            user="your_username",
+            password="your_password",
+            database="your_db_name",
+            connect_timeout=5  # Fast timeout keeps the app responsive
+        )
+        status.update(label="🚀 Database Connected Successfully!", state="complete", expanded=False)
+        connection.close()
+    except Exception as e:
+        status.update(label="❌ Database Connection Timeout", state="error", expanded=True)
+        st.error(f"Failed to execute pre-flight database scans: {e}")
+        st.info("The server firewall is dropping traffic from the cloud network. Please verify port 3306 rules.")
+
+
+########## Setup global application authorization tracker states
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
