@@ -1,6 +1,23 @@
 import streamlit as st
 import traceback
 
+
+import socket
+
+
+st.title("Network Diagnostic Test")
+
+try:
+    # Attempt to open a raw network socket to the database on port 3306
+    # Timeout after 5 seconds so the app doesn't freeze permanently
+    socket.create_connection(("31.97.208.88", 3306), timeout=5)
+    st.success("🚀 Success! The cloud server CAN reach the MySQL port.")
+except socket.timeout:
+    st.error("❌ Network Timeout: The database firewall is blocking your cloud server.")
+except Exception as e:
+    st.error(f"❌ Connection failed: {e}")
+
+
 # Setup global application authorization tracker states
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
